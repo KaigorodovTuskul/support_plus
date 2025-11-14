@@ -1,0 +1,160 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base font size and line height */
+:root {
+  --font-size-base: 16px;
+  --letter-spacing-base: 0;
+}
+
+/* Accessibility classes for font size */
+.font-size-normal {
+  font-size: var(--font-size-base);
+}
+
+.font-size-enlarged {
+  font-size: calc(var(--font-size-base) * 1.25);
+}
+
+.font-size-huge {
+  font-size: calc(var(--font-size-base) * 1.5);
+}
+
+/* Accessibility classes for letter spacing */
+.letter-spacing-normal {
+  letter-spacing: var(--letter-spacing-base);
+}
+
+.letter-spacing-enlarged {
+  letter-spacing: 0.05em;
+}
+
+.letter-spacing-huge {
+  letter-spacing: 0.1em;
+}
+
+/* Font family */
+.font-sans-serif {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.font-serif {
+  font-family: Georgia, Cambria, 'Times New Roman', Times, serif;
+}
+
+/* Color modes */
+.color-mode-default {
+  background-color: white;
+  color: #1f2937;
+}
+
+.color-mode-monochrome {
+  filter: grayscale(100%);
+}
+
+.color-mode-inverted {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+.color-mode-blue-bg {
+  background-color: #dbeafe !important;
+  color: #1e3a8a !important;
+}
+
+.color-mode-blue-bg * {
+  background-color: inherit;
+  color: inherit;
+}
+
+/* Hide images when disabled */
+.hide-images img {
+  display: none;
+}
+
+/* Focus styles for accessibility */
+*:focus {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  * {
+    border-color: currentColor !important;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dark theme */
+.dark {
+  background-color: #1f2937;
+  color: #f3f4f6;
+}
+
+.dark .bg-white {
+  background-color: #374151 !important;
+}
+
+.dark .bg-gray-50 {
+  background-color: #1f2937 !important;
+}
+
+.dark .bg-gray-100 {
+  background-color: #4b5563 !important;
+}
+
+.dark .text-gray-900 {
+  color: #f3f4f6 !important;
+}
+
+.dark .text-gray-800 {
+  color: #e5e7eb !important;
+}
+
+.dark .text-gray-700 {
+  color: #d1d5db !important;
+}
+
+.dark .text-gray-600 {
+  color: #9ca3af !important;
+}
+
+.dark .text-gray-500 {
+  color: #6b7280 !important;
+}
+
+.dark .border-gray-200 {
+  border-color: #4b5563 !important;
+}
+
+.dark .border-gray-300 {
+  border-color: #6b7280 !important;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #4b5563 !important;
+  border-color: #6b7280 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark input::placeholder,
+.dark select::placeholder,
+.dark textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+/* Smooth transitions */
+* {
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
