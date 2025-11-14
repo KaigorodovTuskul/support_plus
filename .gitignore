@@ -6,6 +6,7 @@ __pycache__/
 .Python
 env/
 venv/
+.claude/
 ENV/
 build/
 develop-eggs/
@@ -56,3 +57,9 @@ yarn-error.log*
 
 # OS
 Thumbs.db
+FRONTEND_WORKAROUND.md
+README_DEV.md
+WINDOWS_SETUP.md
+start.bat
+QUICKSTART.md
+IMPLEMENTATION_STATUS.md
