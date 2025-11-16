@@ -1,4 +1,4 @@
-“SUPPORT+” — A Web App for Access to Benefits and Discounts for Vulnerable Groups
+“Opora” (Опора) — A Web App for Access to Benefits and Discounts for Vulnerable Groups
 Build a responsive web application (installable as a PWA) aimed at vulnerable populations—seniors, people with disabilities, large families, low‑income households, etc.—that provides personalized access to:
 Government benefits (social payments, medicines, transport, utilities, education, etc.)
 Commercial offers from private companies (discounts at pharmacies, grocery stores, household services, etc.)
@@ -55,7 +55,7 @@ By relevance, date, popularity
 
 
 4) Benefits and Deals Database
-You need to make a data parser from next urls:
+You need to make a data parser from next urls (we will also add some features to auto-parse the actual data from the resources):
 https://sfr.gov.ru/grazhdanam/pensionres/
 https://sfr.gov.ru/grazhdanam/semyam_s_detmi/
 https://sfr.gov.ru/grazhdanam/invalidam/
@@ -73,6 +73,8 @@ https://sfr.gov.ru/grazhdanam/cosp/
 Internal database (mock data in JSON/CSV is acceptable, but must be structured and realistic)
 At least 15 benefits (federal + regional, e.g., for Yakutsk)
 At least 10 commercial partner offers (pharmacies, stores, utilities services)
+
+In our project, for the MVP there is a Sqlite DB, but in future it can be easily increased by PostGRES or Supabase. 
 
 Required fields for each record:
 {
