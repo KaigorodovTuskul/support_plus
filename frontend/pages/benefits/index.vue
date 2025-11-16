@@ -78,14 +78,31 @@
           </div>
 
           <div class="mt-4 flex justify-between items-center">
-            <button
-              @click="resetFilters"
-              class="text-gray-600 hover:text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-primary-500 rounded px-3 py-1"
-            >
-              Сбросить фильтры
-            </button>
+            <div class="flex space-x-3">
+              <button
+                v-if="showingAllBenefits"
+                @click="resetFilters"
+                class="text-primary-600 hover:text-primary-700 font-semibold focus:outline-none focus:ring-2 focus:ring-primary-500 rounded px-3 py-1"
+              >
+                Показать только мои льготы
+              </button>
+              <button
+                v-else
+                @click="showAllBenefits"
+                class="text-primary-600 hover:text-primary-700 font-semibold focus:outline-none focus:ring-2 focus:ring-primary-500 rounded px-3 py-1"
+              >
+                Показать все льготы
+              </button>
+              <button
+                @click="resetFilters"
+                class="text-gray-600 hover:text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-primary-500 rounded px-3 py-1"
+              >
+                Сбросить фильтры
+              </button>
+            </div>
             <p class="text-sm text-gray-600">
-              Найдено: <strong>{{ filteredBenefits.length }}</strong> {{ getBenefitsWord(filteredBenefits.length) }}
+              <span v-if="!showingAllBenefits" class="text-primary-600 font-semibold">Ваши льготы: </span>
+              <strong>{{ filteredBenefits.length }}</strong> {{ getBenefitsWord(filteredBenefits.length) }}
             </p>
           </div>
         </div>
@@ -270,20 +287,43 @@ onMounted(async () => {
     user.value = JSON.parse(userData)
   }
 
-  // Fetch benefits
+  // Fetch benefits - by default show personalized benefits
   try {
-    benefits.value = await $fetch(`${config.public.apiBase}/benefits/`, {
+    console.log('Fetching benefits...')
+    const response = await $fetch(`${config.public.apiBase}/benefits/?personalized=true`, {
       headers: {
         Authorization: `Bearer ${token}`
       }
     })
+
+    console.log('Benefits response:', response)
+    console.log('Response type:', typeof response)
+    console.log('Is array:', Array.isArray(response))
+
+    // Check if response is paginated (has 'results' key) or direct array
+    if (response && typeof response === 'object' && 'results' in response) {
+      console.log('Paginated response, results count:', response.results.length)
+      benefits.value = response.results
+    } else if (Array.isArray(response)) {
+      console.log('Direct array response, count:', response.length)
+      benefits.value = response
+    } else {
+      console.error('Unexpected response format:', response)
+      benefits.value = []
+    }
+
     filteredBenefits.value = benefits.value
+    console.log('Benefits loaded:', benefits.value.length)
   } catch (err) {
     console.error('Error loading benefits:', err)
+    console.error('Error details:', err.data)
   } finally {
     loading.value = false
   }
 })
+
+// Flag to track if showing all benefits
+const showingAllBenefits = ref(false)
 
 const applyFilters = () => {
   let result = [...benefits.value]
@@ -319,14 +359,71 @@ const applyFilters = () => {
   filteredBenefits.value = result
 }
 
-const resetFilters = () => {
+const resetFilters = async () => {
   filters.value = {
     search: '',
     benefit_type: '',
     category: '',
     region: ''
   }
+
+  // If showing all benefits, switch back to personalized
+  if (showingAllBenefits.value) {
+    loading.value = true
+    try {
+      const token = localStorage.getItem('access_token')
+      const response = await $fetch(`${config.public.apiBase}/benefits/?personalized=true`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+
+      // Handle paginated response
+      if (response && typeof response === 'object' && 'results' in response) {
+        benefits.value = response.results
+      } else if (Array.isArray(response)) {
+        benefits.value = response
+      } else {
+        benefits.value = []
+      }
+
+      showingAllBenefits.value = false
+    } catch (err) {
+      console.error('Error loading personalized benefits:', err)
+    } finally {
+      loading.value = false
+    }
+  }
+
   filteredBenefits.value = benefits.value
+}
+
+const showAllBenefits = async () => {
+  loading.value = true
+  try {
+    const token = localStorage.getItem('access_token')
+    const response = await $fetch(`${config.public.apiBase}/benefits/`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    // Handle paginated response
+    if (response && typeof response === 'object' && 'results' in response) {
+      benefits.value = response.results
+    } else if (Array.isArray(response)) {
+      benefits.value = response
+    } else {
+      benefits.value = []
+    }
+
+    showingAllBenefits.value = true
+    filteredBenefits.value = benefits.value
+  } catch (err) {
+    console.error('Error loading all benefits:', err)
+  } finally {
+    loading.value = false
+  }
 }
 
 const getBenefitTypeName = (type) => {
@@ -369,7 +466,7 @@ const getBenefitsWord = (count) => {
 }
 
 useHead({
-  title: 'Льготы | ПОДДЕРЖКА+',
+  title: 'Льготы | Опора',
   meta: [
     { name: 'description', content: 'Полный список доступных государственных льгот' }
   ]

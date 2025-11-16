@@ -3,10 +3,8 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
       <div class="flex items-center justify-between">
         <NuxtLink :to="backLink" class="flex items-center space-x-3">
-          <div class="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-            <span class="text-white text-xl font-bold">П+</span>
-          </div>
-          <h1 class="text-2xl font-bold text-gray-900">ПОДДЕРЖКА+</h1>
+          <img src="/logo.jpg" alt="Опора" class="w-12 h-12 rounded-lg object-cover">
+          <h1 class="text-2xl font-bold text-gray-900">Опора</h1>
         </NuxtLink>
 
         <div class="flex items-center space-x-3">

@@ -25,17 +25,36 @@ class Command(BaseCommand):
         'https://sfr.gov.ru/grazhdanam/cosp/',
     ]
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--dry-run',
+            action='store_true',
+            help='Test parsing without saving to database',
+        )
+        parser.add_argument(
+            '--limit',
+            type=int,
+            default=None,
+            help='Limit number of URLs to parse (for testing)',
+        )
+
     def handle(self, *args, **options):
+        self.dry_run = options.get('dry_run', False)
+        limit = options.get('limit')
+
+        if self.dry_run:
+            self.stdout.write(self.style.WARNING('DRY RUN MODE - No data will be saved'))
+
         self.stdout.write('Starting benefit parsing...')
 
         # Ensure regions exist
-        self.create_initial_regions()
-
-        # Ensure categories exist
-        self.create_initial_categories()
+        if not self.dry_run:
+            self.create_initial_regions()
+            self.create_initial_categories()
 
         # Parse each URL
-        for url in self.URLS:
+        urls_to_parse = self.URLS[:limit] if limit else self.URLS
+        for url in urls_to_parse:
             try:
                 self.stdout.write(f'Parsing: {url}')
                 self.parse_url(url)
@@ -43,9 +62,13 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.ERROR(f'Error parsing {url}: {str(e)}'))
 
         # Create mock commercial offers
-        self.create_mock_commercial_offers()
+        if not self.dry_run:
+            self.create_mock_commercial_offers()
 
-        self.stdout.write(self.style.SUCCESS('Parsing completed!'))
+        if self.dry_run:
+            self.stdout.write(self.style.SUCCESS('Parsing test completed! (No data saved)'))
+        else:
+            self.stdout.write(self.style.SUCCESS('Parsing completed!'))
 
     def create_initial_regions(self):
         """Create initial Russian regions"""
@@ -110,9 +133,22 @@ class Command(BaseCommand):
         # Determine beneficiary category from URL
         target_groups = self.determine_target_groups(source_url)
 
-        # Try to find article sections, content blocks, or lists
-        # Adjust selectors based on actual website structure
-        content_sections = soup.find_all(['article', 'section', 'div'], class_=re.compile(r'content|article|news|info'))
+        # Try multiple strategies to find content
+        # Strategy 1: Look for article/content containers
+        content_sections = soup.find_all(['article', 'section', 'div'],
+                                        class_=re.compile(r'content|article|news|info|item|card|block'))
+
+        # Strategy 2: Look for main content area
+        main_content = soup.find(['main', 'div'], id=re.compile(r'content|main'))
+        if main_content:
+            content_sections.extend(main_content.find_all(['div', 'section'], recursive=False))
+
+        # Strategy 3: Look for accordion/expandable sections
+        accordions = soup.find_all(['div', 'section'], class_=re.compile(r'accordion|toggle|collapse'))
+        content_sections.extend(accordions)
+
+        # Remove duplicates
+        content_sections = list(set(content_sections))
 
         if not content_sections:
             # Fallback: create generic benefit from the page
@@ -125,20 +161,28 @@ class Command(BaseCommand):
                     'source_url': source_url,
                 }
                 benefits.append(benefit)
+                self.stdout.write(f'  Found 1 benefit (fallback): {title.get_text(strip=True)[:50]}...')
         else:
             # Extract multiple benefits from sections
-            for section in content_sections[:5]:  # Limit to first 5 sections
-                title_elem = section.find(['h2', 'h3', 'h4'])
+            count = 0
+            for section in content_sections[:10]:  # Limit to first 10 sections
+                title_elem = section.find(['h2', 'h3', 'h4', 'strong'])
                 if title_elem:
                     title = title_elem.get_text(strip=True)
-                    if len(title) > 10:  # Filter out too-short titles
-                        benefit = {
-                            'title': title,
-                            'description': self.extract_text(section),
-                            'target_groups': target_groups,
-                            'source_url': source_url,
-                        }
-                        benefits.append(benefit)
+                    # Filter out navigation, menu items, and too-short titles
+                    if len(title) > 15 and not any(skip in title.lower() for skip in ['меню', 'навигация', 'поиск', 'вход']):
+                        description = self.extract_text(section)
+                        if len(description) > 50:  # Ensure meaningful content
+                            benefit = {
+                                'title': title[:200],  # Limit title length
+                                'description': description,
+                                'target_groups': target_groups,
+                                'source_url': source_url,
+                            }
+                            benefits.append(benefit)
+                            count += 1
+
+            self.stdout.write(f'  Found {count} benefits from sections')
 
         return benefits
 
@@ -181,6 +225,10 @@ class Command(BaseCommand):
         title_slug = re.sub(r'[^\w\s-]', '', benefit_data['title']).strip().lower()
         title_slug = re.sub(r'[-\s]+', '-', title_slug)[:50]
         benefit_id = f"sfr-{title_slug}"
+
+        if self.dry_run:
+            self.stdout.write(f'[DRY RUN] Would create: {benefit_id} - {benefit_data["title"][:60]}...')
+            return
 
         # Check if benefit already exists
         if Benefit.objects.filter(benefit_id=benefit_id).exists():

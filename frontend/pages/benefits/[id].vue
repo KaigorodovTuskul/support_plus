@@ -279,7 +279,7 @@ const formatDate = (dateString) => {
 }
 
 useHead({
-  title: () => benefit.value ? `${benefit.value.title} | ПОДДЕРЖКА+` : 'Льгота | ПОДДЕРЖКА+',
+  title: () => benefit.value ? `${benefit.value.title} | Опора` : 'Льгота | Опора',
   meta: [
     { name: 'description', content: () => benefit.value?.description || 'Информация о льготе' }
   ]

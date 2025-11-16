@@ -5,10 +5,8 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div class="flex items-center justify-between">
           <NuxtLink to="/" class="flex items-center space-x-3">
-            <div class="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-              <span class="text-white text-xl font-bold">П+</span>
-            </div>
-            <h1 class="text-2xl font-bold text-gray-900">ПОДДЕРЖКА+</h1>
+            <img src="/logo.jpg" alt="Опора" class="w-12 h-12 rounded-lg object-cover">
+            <h1 class="text-2xl font-bold text-gray-900">Опора</h1>
           </NuxtLink>
           <button
             @click="toggleTheme"
@@ -66,13 +64,13 @@
         <!-- Login Form -->
         <form @submit.prevent="handleLogin" class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Имя пользователя</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
-              v-model="form.username"
-              type="text"
+              v-model="form.email"
+              type="email"
               required
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Ваш username"
+              placeholder="Ваш email"
             />
           </div>
 
@@ -121,7 +119,7 @@ const config = useRuntimeConfig()
 const { settings, updateSetting } = useAccessibility()
 
 const form = ref({
-  username: '',
+  email: '',
   password: ''
 })
 
@@ -164,7 +162,8 @@ const handleLogin = async () => {
       router.push('/dashboard')
     }, 1500)
   } catch (err) {
-    error.value = err.data?.detail || 'Неверное имя пользователя или пароль'
+    console.error('Login error:', err)
+    error.value = err.data?.non_field_errors?.[0] || err.data?.detail || 'Неверный email или пароль'
     loading.value = false
   }
 }
@@ -209,7 +208,7 @@ const loginWithGosuslugi = async () => {
 }
 
 useHead({
-  title: 'Вход | ПОДДЕРЖКА+',
+  title: 'Вход | Опора',
   meta: [
     { name: 'description', content: 'Войдите в систему для доступа к льготам' }
   ]

@@ -5,10 +5,8 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div class="flex items-center justify-between">
           <NuxtLink to="/" class="flex items-center space-x-3">
-            <div class="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-              <span class="text-white text-xl font-bold">П+</span>
-            </div>
-            <h1 class="text-2xl font-bold text-gray-900">ПОДДЕРЖКА+</h1>
+            <img src="/logo.jpg" alt="Опора" class="w-12 h-12 rounded-lg object-cover">
+            <h1 class="text-2xl font-bold text-gray-900">Опора</h1>
           </NuxtLink>
           <button
             @click="toggleTheme"
@@ -118,14 +116,24 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Регион проживания</label>
-            <input
+            <label class="block text-sm font-medium text-gray-700 mb-1">Регион проживания (необязательно)</label>
+            <select
               v-model="form.region"
-              type="text"
-              required
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Республика Саха (Якутия)"
-            />
+            >
+              <option value="">Выберите регион</option>
+              <option value="Республика Саха (Якутия)">Республика Саха (Якутия)</option>
+              <option value="Москва">Москва</option>
+              <option value="Санкт-Петербург">Санкт-Петербург</option>
+              <option value="Московская область">Московская область</option>
+              <option value="Ленинградская область">Ленинградская область</option>
+              <option value="Свердловская область">Свердловская область</option>
+              <option value="Новосибирская область">Новосибирская область</option>
+              <option value="Краснодарский край">Краснодарский край</option>
+              <option value="Республика Татарстан">Республика Татарстан</option>
+              <option value="Республика Башкортостан">Республика Башкортостан</option>
+              <option value="Другой регион">Другой регион</option>
+            </select>
           </div>
 
           <div>
@@ -219,11 +227,19 @@ const handleRegister = async () => {
 
   loading.value = true
 
+  // Debug logging
+  console.log('=== REGISTRATION FORM DATA ===')
+  console.log('Form values:', form.value)
+  console.log('Password:', form.value.password)
+  console.log('Password2:', form.value.password2)
+
   try {
     const response = await $fetch(`${config.public.apiBase}/auth/register/`, {
       method: 'POST',
       body: form.value
     })
+
+    console.log('Registration response:', response)
 
     success.value = true
 
@@ -282,7 +298,7 @@ const loginWithGosuslugi = async () => {
 }
 
 useHead({
-  title: 'Регистрация | ПОДДЕРЖКА+',
+  title: 'Регистрация | Опора',
   meta: [
     { name: 'description', content: 'Зарегистрируйтесь для доступа к льготам и скидкам' }
   ]

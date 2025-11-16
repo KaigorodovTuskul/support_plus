@@ -26,7 +26,7 @@ class User(AbstractUser):
         blank=True,
         null=True
     )
-    region = models.CharField(max_length=100, help_text='Регион проживания')
+    region = models.CharField(max_length=100, help_text='Регион проживания', blank=True, null=True)
 
     # SNILS number (masked for privacy)
     snils_validator = RegexValidator(

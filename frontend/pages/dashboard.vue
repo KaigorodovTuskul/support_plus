@@ -124,11 +124,11 @@
         </NuxtLink>
 
         <NuxtLink
-          to="/settings"
+          to="/profile"
           class="bg-white rounded-xl shadow p-6 hover:shadow-lg transition"
         >
-          <h3 class="text-lg font-bold text-gray-900 mb-2">Настройки</h3>
-          <p class="text-gray-600 text-sm">Настройте доступность и персонализацию</p>
+          <h3 class="text-lg font-bold text-gray-900 mb-2">Личный кабинет</h3>
+          <p class="text-gray-600 text-sm">Управление профилем и изменение пароля</p>
         </NuxtLink>
       </div>
     </main>
@@ -160,11 +160,17 @@ onMounted(async () => {
 
   // Fetch dashboard data
   try {
+    console.log('Fetching dashboard data...')
+    console.log('API Base:', config.public.apiBase)
+    console.log('Token:', token ? 'exists' : 'missing')
+
     dashboard.value = await $fetch(`${config.public.apiBase}/benefits/dashboard/`, {
       headers: {
         Authorization: `Bearer ${token}`
       }
     })
+
+    console.log('Dashboard data:', dashboard.value)
 
     // Fetch offers
     offers.value = await $fetch(`${config.public.apiBase}/offers/?personalized=true`, {
@@ -172,8 +178,11 @@ onMounted(async () => {
         Authorization: `Bearer ${token}`
       }
     })
+
+    console.log('Offers data:', offers.value)
   } catch (err) {
     console.error('Error loading dashboard:', err)
+    console.error('Error details:', err.data)
   } finally {
     loading.value = false
   }
@@ -195,7 +204,7 @@ const getCategoryName = (category) => {
 }
 
 useHead({
-  title: 'Личный кабинет | ПОДДЕРЖКА+',
+  title: 'Личный кабинет | Опора',
   meta: [
     { name: 'description', content: 'Личный кабинет пользователя' }
   ]

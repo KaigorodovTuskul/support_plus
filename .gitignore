@@ -6,7 +6,6 @@ __pycache__/
 .Python
 env/
 venv/
-.claude/
 ENV/
 build/
 develop-eggs/
@@ -23,6 +22,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.pyc
 
 # Django
 *.log
@@ -32,6 +32,11 @@ db.sqlite3-journal
 /media
 /staticfiles
 /static
+migrations/
+
+# Database
+db/
+*.db
 
 # Node
 node_modules/
@@ -39,6 +44,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+package-lock.json
 
 # Nuxt
 .nuxt
@@ -46,6 +52,7 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
+dist/
 
 # IDE
 .vscode/
@@ -53,13 +60,34 @@ yarn-error.log*
 *.swp
 *.swo
 *~
-.DS_Store
 
 # OS
+.DS_Store
 Thumbs.db
+
+# Claude
+.claude/settings.local.json
+
+# Temporary files and data
+*.csv
+*.html
+debug_*.html
+test_*.py
+sfr_*.json
+
+# Images (if needed, you can keep specific ones)
+*.gif
+*.jpg
+*.png
+!frontend/public/logo.png
+!frontend/public/favicon.ico
+
+# Documentation files
 FRONTEND_WORKAROUND.md
 README_DEV.md
 WINDOWS_SETUP.md
-start.bat
 QUICKSTART.md
 IMPLEMENTATION_STATUS.md
+PARSER_GUIDE.md
+SETUP_GUIDE.md
+*.docx

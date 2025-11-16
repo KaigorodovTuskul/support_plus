@@ -3,6 +3,7 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 from django.db.models import Q
 from django.utils import timezone
 from datetime import timedelta
@@ -17,17 +18,45 @@ from .serializers import (
     UserSerializer, UserProfileSerializer, UserRegistrationSerializer,
     BenefitSerializer, BenefitDetailSerializer, CommercialOfferSerializer,
     CategorySerializer, RegionSerializer, UserBenefitInteractionSerializer,
-    VerificationRequestSerializer
+    VerificationRequestSerializer, CustomTokenObtainPairSerializer
 )
+
+
+def filter_by_target_groups(queryset, category):
+    """
+    Filter queryset by target group category.
+    Works with SQLite by filtering in Python instead of using JSONField __contains.
+    Works for both Benefits and CommercialOffers.
+    """
+    if not category:
+        return queryset
+
+    # Get all items and filter in Python
+    all_items = list(queryset)
+    filtered_ids = [
+        item.id for item in all_items
+        if item.target_groups and category in item.target_groups
+    ]
+    return queryset.filter(id__in=filtered_ids) if filtered_ids else queryset.none()
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_user(request):
     """Register a new user"""
+    # Debug logging
+    print("=== REGISTRATION DEBUG ===")
+    print("Request data:", request.data)
+    print("Password received:", request.data.get('password'))
+    print("Password2 received:", request.data.get('password2'))
+
     serializer = UserRegistrationSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
+
+        # Verify password was set correctly
+        print(f"User created: {user.username}")
+        print(f"Password check after creation: {user.check_password(request.data.get('password'))}")
 
         # Generate tokens
         refresh = RefreshToken.for_user(user)
@@ -40,6 +69,7 @@ def register_user(request):
             }
         }, status=status.HTTP_201_CREATED)
 
+    print("Serializer errors:", serializer.errors)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -122,7 +152,7 @@ class BenefitViewSet(viewsets.ReadOnlyModelViewSet):
         # Filter by target group (personalized)
         if self.request.query_params.get('personalized') == 'true':
             if user.beneficiary_category:
-                queryset = queryset.filter(target_groups__contains=[user.beneficiary_category])
+                queryset = filter_by_target_groups(queryset, user.beneficiary_category)
 
         # Exclude hidden benefits
         if hasattr(user, 'profile'):
@@ -156,7 +186,7 @@ class BenefitViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = self.get_queryset()
 
         if user.beneficiary_category:
-            queryset = queryset.filter(target_groups__contains=[user.beneficiary_category])
+            queryset = filter_by_target_groups(queryset, user.beneficiary_category)
 
         if user.region:
             queryset = queryset.filter(
@@ -178,7 +208,7 @@ class BenefitViewSet(viewsets.ReadOnlyModelViewSet):
         # Get active benefits for user
         active = queryset.filter(status='active')
         if user.beneficiary_category:
-            active = active.filter(target_groups__contains=[user.beneficiary_category])
+            active = filter_by_target_groups(active, user.beneficiary_category)
 
         # Get expiring soon
         expiring_date = timezone.now().date() + timedelta(days=30)
@@ -221,7 +251,7 @@ class CommercialOfferViewSet(viewsets.ReadOnlyModelViewSet):
         # Personalized
         if self.request.query_params.get('personalized') == 'true':
             if user.beneficiary_category:
-                queryset = queryset.filter(target_groups__contains=[user.beneficiary_category])
+                queryset = filter_by_target_groups(queryset, user.beneficiary_category)
 
         return queryset
 
@@ -307,9 +337,8 @@ def export_benefits_pdf(request):
     p.drawString(100, 710, f"Регион: {user.region}")
 
     # Get user's benefits
-    benefits = Benefit.objects.filter(
-        target_groups__contains=[user.beneficiary_category]
-    )[:10]
+    all_benefits = Benefit.objects.all()
+    benefits = filter_by_target_groups(all_benefits, user.beneficiary_category)[:10]
 
     y = 680
     for benefit in benefits:
@@ -328,9 +357,41 @@ def export_benefits_pdf(request):
     return response
 
 
-@api_view(['GET'])
+@api_view(['GET', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def user_info(request):
-    """Get current user information"""
-    serializer = UserSerializer(request.user)
-    return Response(serializer.data)
+    """Get or update current user information"""
+    if request.method == 'GET':
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
+    elif request.method == 'PATCH':
+        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """Change user password"""
+    user = request.user
+    current_password = request.data.get('current_password')
+    new_password = request.data.get('new_password')
+
+    if not current_password or not new_password:
+        return Response({'message': 'Необходимо указать текущий и новый пароль'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not user.check_password(current_password):
+        return Response({'message': 'Неверный текущий пароль'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.save()
+
+    return Response({'message': 'Пароль успешно изменен'})
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """Custom token view that uses email for authentication"""
+    serializer_class = CustomTokenObtainPairSerializer

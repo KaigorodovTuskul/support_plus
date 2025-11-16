@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.contrib.auth import authenticate
 from users.models import User, UserProfile, VerificationRequest
 from benefits.models import Benefit, CommercialOffer, Category, Region, UserBenefitInteraction
 
@@ -46,7 +48,18 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password2')
         password = validated_data.pop('password')
-        user = User.objects.create_user(password=password, **validated_data)
+
+        # Extract username and email explicitly
+        username = validated_data.pop('username')
+        email = validated_data.pop('email')
+
+        # Create user with proper argument order
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            **validated_data
+        )
 
         # Create user profile
         UserProfile.objects.create(user=user)
@@ -139,3 +152,46 @@ class VerificationRequestSerializer(serializers.ModelSerializer):
         model = VerificationRequest
         fields = ['id', 'user', 'status', 'documents', 'notes', 'created_at', 'reviewed_at']
         read_only_fields = ['id', 'created_at', 'reviewed_at']
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Custom JWT token serializer that accepts email instead of username"""
+    username_field = 'email'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Replace username field with email field
+        self.fields['email'] = serializers.EmailField()
+        self.fields.pop('username', None)
+
+    def validate(self, attrs):
+        # Get email and password from request
+        email = attrs.get('email')
+        password = attrs.get('password')
+
+        if email and password:
+            # Try to find user by email
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                raise serializers.ValidationError('Не найдено активной учетной записи с указанными данными')
+
+            # Check if user is active
+            if not user.is_active:
+                raise serializers.ValidationError('Учетная запись отключена')
+
+            # Verify password
+            if not user.check_password(password):
+                raise serializers.ValidationError('Неверный email или пароль')
+
+            # Create refresh token
+            refresh = self.get_token(user)
+
+            data = {
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }
+
+            return data
+        else:
+            raise serializers.ValidationError('Необходимо указать email и пароль')
