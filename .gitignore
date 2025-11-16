@@ -65,8 +65,6 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Claude
-.claude/settings.local.json
 
 # Temporary files and data
 *.csv
@@ -79,7 +77,8 @@ sfr_*.json
 *.gif
 *.jpg
 *.png
-!frontend/public/logo.png
+!frontend/public/logo.jpg
+!frontend/public/roboto_128.gif
 !frontend/public/favicon.ico
 
 # Documentation files
