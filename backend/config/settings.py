@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'users',
     'benefits',
     'api',
+    'search'
 ]
 
 MIDDLEWARE = [
@@ -150,6 +151,12 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ],
 }
+
+# Vector store files will be created in BASE_DIR
+VECTOR_INDEX_PATH = BASE_DIR / 'search_index.faiss'
+VECTOR_MAPPING_PATH = BASE_DIR / 'search_mapping.json'
+
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', 'sk-your-key')
 
 # JWT configuration
 SIMPLE_JWT = {

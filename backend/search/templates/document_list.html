@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Льготы и предложения</title>
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+</head>
+<body>
+    <h1>Поиск льгот и предложений</h1>
+    <div id="search-container">
+        <input type="text"
+               id="search-input"
+               placeholder="Что вы ищете? (например: льготы для пенсионеров в Москве)"
+               hx-post="{% url 'natural-search' %}"
+               hx-trigger="keyup changed delay:500ms"
+               hx-target="#results"
+               hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+               autocomplete="off">
+    </div>
+    <div id="results"></div>
+</body>
+</html>

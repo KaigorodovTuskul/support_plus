@@ -47,7 +47,7 @@ package-lock.json
 # Nuxt
 .nuxt
 .output
-.env
+backend/.env
 .env.local
 .env.*.local
 dist/
