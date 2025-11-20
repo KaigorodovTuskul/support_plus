@@ -4,6 +4,8 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.contenttypes.models import ContentType
 from django.shortcuts import get_object_or_404
 import json
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from .query_parser import QueryParser
 from .embedding_service import LocalEmbeddingService
 from .vector_store import InMemoryVectorStore
@@ -17,9 +19,76 @@ vector_store = InMemoryVectorStore()
 
 
 class NaturalLanguageSearchAPI(APIView):
-    """Unified search for benefits and commercial offers"""
+    """Unified search for benefits and commercial offers using natural language"""
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary='Поиск льгот и коммерческих предложений',
+        operation_description='Поиск по естественному языку с использованием векторного поиска и LLM',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['query'],
+            properties={
+                'query': openapi.Schema(
+                    type=openapi.TYPE_STRING, 
+                    description='Поисковый запрос на естественном языке (например: "льготы для пенсионеров в Москве")'
+                )
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description='Результаты поиска',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'query': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            description='Распарсенный поисковый запрос',
+                            properties={
+                                'intent': openapi.Schema(type=openapi.TYPE_STRING),
+                                'keywords': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_STRING)),
+                                'filters': openapi.Schema(type=openapi.TYPE_OBJECT),
+                            }
+                        ),
+                        'benefits': openapi.Schema(
+                            type=openapi.TYPE_ARRAY,
+                            items=openapi.Items(
+                                type=openapi.TYPE_OBJECT,
+                                properties={
+                                    'id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                                    'title': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'description': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'type': openapi.Schema(type=openapi.TYPE_STRING, enum=['benefit']),
+                                    'benefit_type': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'similarity': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT),
+                                }
+                            )
+                        ),
+                        'offers': openapi.Schema(
+                            type=openapi.TYPE_ARRAY,
+                            items=openapi.Items(
+                                type=openapi.TYPE_OBJECT,
+                                properties={
+                                    'id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                                    'title': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'description': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'type': openapi.Schema(type=openapi.TYPE_STRING, enum=['commercial']),
+                                    'partner': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'discount': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'similarity': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT),
+                                }
+                            )
+                        ),
+                        'total_benefits': openapi.Schema(type=openapi.TYPE_INTEGER),
+                        'total_offers': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    }
+                )
+            ),
+            400: openapi.Response(description='Ошибка: не указан поисковый запрос'),
+            401: openapi.Response(description='Не авторизован'),
+        },
+        tags=['Поиск']
+    )
     def post(self, request):
         query_text = request.data.get('query', '').strip()
         if not query_text:
@@ -99,9 +168,69 @@ class NaturalLanguageSearchAPI(APIView):
 
 
 class MixedSearchResultsView(APIView):
-    """Get full details of mixed results"""
+    """Get full details of mixed search results"""
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary='Получить полные детали результатов поиска',
+        operation_description='Возвращает полную информацию о выбранных льготах и предложениях по их ID',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_ARRAY,
+            description='Массив ID для получения деталей',
+            items=openapi.Items(
+                type=openapi.TYPE_OBJECT,
+                required=['type', 'id'],
+                properties={
+                    'type': openapi.Schema(type=openapi.TYPE_STRING, enum=['benefit', 'commercial'], description='Тип объекта'),
+                    'id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID объекта'),
+                }
+            )
+        ),
+        responses={
+            200: openapi.Response(
+                description='Массив детализированных объектов',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'type': openapi.Schema(type=openapi.TYPE_STRING, enum=['benefit', 'commercial']),
+                            'id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                            'title': openapi.Schema(type=openapi.TYPE_STRING),
+                            'description': openapi.Schema(type=openapi.TYPE_STRING),
+                        },
+                        discriminator=openapi.Discriminator(
+                            property_name='type',
+                            mapping={
+                                'benefit': openapi.Schema(
+                                    type=openapi.TYPE_OBJECT,
+                                    properties={
+                                        'requirements': openapi.Schema(type=openapi.TYPE_STRING),
+                                        'how_to_get': openapi.Schema(type=openapi.TYPE_STRING),
+                                        'documents_needed': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_STRING)),
+                                        'regions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_STRING)),
+                                        'categories': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_STRING)),
+                                    }
+                                ),
+                                'commercial': openapi.Schema(
+                                    type=openapi.TYPE_OBJECT,
+                                    properties={
+                                        'discount_description': openapi.Schema(type=openapi.TYPE_STRING),
+                                        'how_to_use': openapi.Schema(type=openapi.TYPE_STRING),
+                                        'partner_name': openapi.Schema(type=openapi.TYPE_STRING),
+                                        'regions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_STRING)),
+                                    }
+                                )
+                            }
+                        )
+                    )
+                )
+            ),
+            404: openapi.Response(description='Объект не найден'),
+            401: openapi.Response(description='Не авторизован'),
+        },
+        tags=['Поиск']
+    )
     def post(self, request):
         """Accept list of mixed IDs and return full objects"""
         item_ids = request.data.get('items', [])  # [{'type': 'benefit', 'id': 123}, ...]

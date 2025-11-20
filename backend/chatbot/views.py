@@ -1,13 +1,12 @@
 import os
-import base64
-from django.conf import settings
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from mistralai import Mistral
 from .models import ChatMessage
-
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 # API key
 MISTRAL_API_KEY = os.getenv('MISTRAL_API_KEY')
@@ -16,6 +15,38 @@ MISTRAL_API_KEY = os.getenv('MISTRAL_API_KEY')
 mistral_client = Mistral(api_key=MISTRAL_API_KEY)
 
 
+@swagger_auto_schema(
+    method='post',
+    operation_summary='Чат с ИИ-ассистентом',
+    operation_description='Отправляет сообщение ИИ-ассистенту и получает ответ с учетом истории разговора',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['message'],
+        properties={
+            'message': openapi.Schema(
+                type=openapi.TYPE_STRING,
+                description='Текст сообщения пользователя',
+                example='Какие льготы доступны для инвалидов 1 группы?'
+            )
+        }
+    ),
+    responses={
+        200: openapi.Response(
+            description='Ответ от ИИ-ассистента',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'response': openapi.Schema(type=openapi.TYPE_STRING, description='Текст ответа от ИИ'),
+                    'timestamp': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME, description='Время создания сообщения'),
+                }
+            )
+        ),
+        400: openapi.Response(description='Сообщение не предоставлено'),
+        500: openapi.Response(description='Ошибка обработки сообщения'),
+        401: openapi.Response(description='Не авторизован'),
+    },
+    tags=['Чат-бот']
+)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def chat(request):
@@ -94,6 +125,35 @@ def chat(request):
         )
 
 
+@swagger_auto_schema(
+    method='get',
+    operation_summary='Получить историю чата',
+    operation_description='Возвращает последние 50 сообщений пользователя в хронологическом порядке',
+    responses={
+        200: openapi.Response(
+            description='История чата',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'history': openapi.Schema(
+                        type=openapi.TYPE_ARRAY,
+                        items=openapi.Items(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                'id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID сообщения'),
+                                'message': openapi.Schema(type=openapi.TYPE_STRING, description='Сообщение пользователя'),
+                                'response': openapi.Schema(type=openapi.TYPE_STRING, description='Ответ ИИ'),
+                                'timestamp': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME, description='Время сообщения'),
+                            }
+                        )
+                    )
+                }
+            )
+        ),
+        401: openapi.Response(description='Не авторизован'),
+    },
+    tags=['Чат-бот']
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def chat_history(request):
@@ -114,6 +174,30 @@ def chat_history(request):
     return Response({'history': history})
 
 
+@swagger_auto_schema(
+    method='post',
+    operation_summary='Речь в текст (заглушка)',
+    operation_description='Текущая реализация использует браузерный Web Speech API. Этот эндпоинт оставлен для совместимости.',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'audio': openapi.Schema(type=openapi.TYPE_STRING, format='binary', description='Аудио данные (не используется)'),
+        }
+    ),
+    responses={
+        501: openapi.Response(
+            description='Не реализовано',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'error': openapi.Schema(type=openapi.TYPE_STRING),
+                    'text': openapi.Schema(type=openapi.TYPE_STRING),
+                }
+            )
+        ),
+    },
+    tags=['Чат-бот']
+)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def speech_to_text(request):
@@ -129,6 +213,30 @@ def speech_to_text(request):
     }, status=status.HTTP_501_NOT_IMPLEMENTED)
 
 
+@swagger_auto_schema(
+    method='post',
+    operation_summary='Текст в речь (заглушка)',
+    operation_description='Текущая реализация использует браузерный Web Speech API. Этот эндпоинт оставлен для совместимости.',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'text': openapi.Schema(type=openapi.TYPE_STRING, description='Текст для преобразования (не используется)'),
+        }
+    ),
+    responses={
+        501: openapi.Response(
+            description='Не реализовано',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'error': openapi.Schema(type=openapi.TYPE_STRING),
+                    'audio': openapi.Schema(type=openapi.TYPE_STRING),
+                }
+            )
+        ),
+    },
+    tags=['Чат-бот']
+)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def text_to_speech(request):
@@ -144,6 +252,25 @@ def text_to_speech(request):
     }, status=status.HTTP_501_NOT_IMPLEMENTED)
 
 
+@swagger_auto_schema(
+    method='delete',
+    operation_summary='Очистить историю чата',
+    operation_description='Удаляет всю историю сообщений текущего пользователя',
+    responses={
+        200: openapi.Response(
+            description='История очищена',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'message': openapi.Schema(type=openapi.TYPE_STRING, description='Сообщение об успехе'),
+                    'count': openapi.Schema(type=openapi.TYPE_INTEGER, description='Количество удаленных сообщений'),
+                }
+            )
+        ),
+        401: openapi.Response(description='Не авторизован'),
+    },
+    tags=['Чат-бот']
+)
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def clear_history(request):

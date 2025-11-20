@@ -6,6 +6,8 @@ from django.shortcuts import get_object_or_404
 from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 import json
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from .query_parser import QueryParser
 from .embedding_service import LocalEmbeddingService
 from .vector_store import InMemoryVectorStore
@@ -22,6 +24,20 @@ class DocumentListView(LoginRequiredMixin, TemplateView):
     """Main page showing initial list of active benefits/offers"""
     template_name = 'search/document_list.html'
 
+    @swagger_auto_schema(
+        operation_summary='Получить главную страницу',
+        operation_description='Возвращает главную страницу с начальным списком активных льгот и предложений',
+        responses={
+            200: openapi.Response(
+                description='HTML страница',
+                schema=openapi.Schema(type=openapi.TYPE_STRING)
+            )
+        },
+        tags=['Страницы']
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
@@ -36,6 +52,21 @@ class DocumentListView(LoginRequiredMixin, TemplateView):
 class PersonalPageView(LoginRequiredMixin, TemplateView):
     """Personal account page with user history and recommendations"""
     template_name = 'search/personal_page.html'
+
+    @swagger_auto_schema(
+        operation_summary='Получить личную страницу',
+        operation_description='Возвращает личную страницу пользователя с историей поиска и рекомендациями',
+        responses={
+            200: openapi.Response(
+                description='HTML страница',
+                schema=openapi.Schema(type=openapi.TYPE_STRING)
+            ),
+            401: openapi.Response('Не авторизован')
+        },
+        tags=['Страницы']
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -74,8 +105,86 @@ class PersonalPageView(LoginRequiredMixin, TemplateView):
 
 class NaturalLanguageSearchAPI(APIView):
     """Main search endpoint - handles natural language queries"""
-    # permission_classes = [IsAuthenticated]
-    permission_classes = []
+    permission_classes = []  # Temporarily disabled for testing
+
+    @swagger_auto_schema(
+        operation_summary='Поиск по естественному языку',
+        operation_description='Выполняет поиск льгот и коммерческих предложений по запросу на естественном языке',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['query'],
+            properties={
+                'query': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Поисковый запрос на естественном языке'
+                )
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description='Результаты поиска',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'query': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            description='Распарсенный запрос'
+                        ),
+                        'benefits': openapi.Schema(
+                            type=openapi.TYPE_ARRAY,
+                            items=openapi.Items(
+                                type=openapi.TYPE_OBJECT,
+                                properties={
+                                    'id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                                    'title': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'description': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'benefit_type': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'requirements': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'how_to_get': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'regions': openapi.Schema(
+                                        type=openapi.TYPE_ARRAY,
+                                        items=openapi.Items(type=openapi.TYPE_STRING)
+                                    ),
+                                    'similarity': openapi.Schema(type=openapi.TYPE_NUMBER)
+                                }
+                            )
+                        ),
+                        'offers': openapi.Schema(
+                            type=openapi.TYPE_ARRAY,
+                            items=openapi.Items(
+                                type=openapi.TYPE_OBJECT,
+                                properties={
+                                    'id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                                    'title': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'description': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'partner_name': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'discount_description': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'how_to_use': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'regions': openapi.Schema(
+                                        type=openapi.TYPE_ARRAY,
+                                        items=openapi.Items(type=openapi.TYPE_STRING)
+                                    ),
+                                    'similarity': openapi.Schema(type=openapi.TYPE_NUMBER)
+                                }
+                            )
+                        ),
+                        'total_benefits': openapi.Schema(type=openapi.TYPE_INTEGER),
+                        'total_offers': openapi.Schema(type=openapi.TYPE_INTEGER)
+                    }
+                )
+            ),
+            400: openapi.Response(
+                description='Ошибка в запросе',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            )
+        },
+        tags=['Поиск']
+    )
     def post(self, request):
         query_text = request.data.get('query', '').strip()
         if not query_text:
@@ -169,9 +278,77 @@ class NaturalLanguageSearchAPI(APIView):
 
 class MixedSearchResultsView(APIView):
     """Get full details of selected search results"""
-    # permission_classes = [IsAuthenticated]
-    permission_classes = []
+    permission_classes = []  # Temporarily disabled for testing
 
+    @swagger_auto_schema(
+        operation_summary='Получить детали результатов поиска',
+        operation_description='Возвращает полную информацию о выбранных льготах и предложениях',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['items'],
+            properties={
+                'items': openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(
+                        type=openapi.TYPE_OBJECT,
+                        required=['type', 'id'],
+                        properties={
+                            'type': openapi.Schema(
+                                type=openapi.TYPE_STRING,
+                                enum=['benefit', 'commercial'],
+                                description='Тип объекта'
+                            ),
+                            'id': openapi.Schema(
+                                type=openapi.TYPE_INTEGER,
+                                description='ID объекта'
+                            )
+                        }
+                    )
+                )
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description='Детали объектов',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'type': openapi.Schema(type=openapi.TYPE_STRING),
+                            'id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                            'title': openapi.Schema(type=openapi.TYPE_STRING),
+                            'description': openapi.Schema(type=openapi.TYPE_STRING),
+                            # Common properties
+                            'regions': openapi.Schema(
+                                type=openapi.TYPE_ARRAY,
+                                items=openapi.Items(type=openapi.TYPE_STRING)
+                            ),
+                            # Benefit-specific properties
+                            'requirements': openapi.Schema(type=openapi.TYPE_STRING),
+                            'how_to_get': openapi.Schema(type=openapi.TYPE_STRING),
+                            'documents_needed': openapi.Schema(
+                                type=openapi.TYPE_ARRAY,
+                                items=openapi.Items(type=openapi.TYPE_STRING)
+                            ),
+                            'source_url': openapi.Schema(type=openapi.TYPE_STRING),
+                            'categories': openapi.Schema(
+                                type=openapi.TYPE_ARRAY,
+                                items=openapi.Items(type=openapi.TYPE_STRING)
+                            ),
+                            # Commercial-specific properties
+                            'discount_description': openapi.Schema(type=openapi.TYPE_STRING),
+                            'partner_name': openapi.Schema(type=openapi.TYPE_STRING),
+                            'partner_website': openapi.Schema(type=openapi.TYPE_STRING),
+                            'how_to_use': openapi.Schema(type=openapi.TYPE_STRING),
+                            'promo_code': openapi.Schema(type=openapi.TYPE_STRING),
+                        }
+                    )
+                )
+            )
+        },
+        tags=['Поиск']
+    )
     def post(self, request):
         item_ids = request.data.get('items', [])  # [{'type': 'benefit', 'id': 123}, ...]
 
