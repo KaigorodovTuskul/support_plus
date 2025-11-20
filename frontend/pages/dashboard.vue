@@ -113,6 +113,11 @@
         </div>
       </div>
 
+      <!-- Inline Chatbot Section -->
+      <div class="mb-8">
+        <Chatbot :inline="true" />
+      </div>
+
       <!-- Quick Links -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <NuxtLink

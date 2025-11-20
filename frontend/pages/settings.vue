@@ -264,6 +264,27 @@
                 </button>
               </div>
 
+              <!-- Speech Rate Control -->
+              <div v-if="settings.speechAssistant" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <label class="block text-sm font-semibold text-gray-900 mb-2">
+                  Скорость речи: {{ settings.speechRate || 1.5 }}x
+                </label>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2.0"
+                  step="0.1"
+                  :value="settings.speechRate || 1.5"
+                  @input="updateSetting('speechRate', parseFloat($event.target.value))"
+                  class="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+                />
+                <div class="flex justify-between text-xs text-gray-600 mt-1">
+                  <span>0.5x (медленно)</span>
+                  <span>1.0x (нормально)</span>
+                  <span>2.0x (быстро)</span>
+                </div>
+              </div>
+
               <!-- Speech Controls (UI Only) -->
               <div v-if="settings.speechAssistant" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div class="flex items-center justify-center space-x-3 mb-3">

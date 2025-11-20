@@ -6,7 +6,8 @@ export const useAccessibility = () => {
     colorMode: 'default',
     showImages: true,
     speechAssistant: false,
-    theme: 'light' // light or dark
+    theme: 'light', // light or dark
+    speechRate: 1.5 // Speech synthesis rate (0.5 - 2.0)
   }))
 
   // Load settings from localStorage on client side
@@ -70,7 +71,8 @@ export const useAccessibility = () => {
       colorMode: 'default',
       showImages: true,
       speechAssistant: false,
-      theme: 'light'
+      theme: 'light',
+      speechRate: 1.5
     }
     saveSettings()
   }

@@ -46,12 +46,13 @@ class Command(BaseCommand):
         if created:
             self.stdout.write(self.style.SUCCESS(f'Created default region: {default_region}'))
 
-        category, created = Category.objects.get_or_create(
+        # Default category if not specified
+        default_category, created = Category.objects.get_or_create(
             name='Льготы для инвалидов',
             defaults={'slug': 'invalidam', 'description': 'Льготы для людей с инвалидностью'}
         )
         if created:
-            self.stdout.write(self.style.SUCCESS(f'Created category: {category}'))
+            self.stdout.write(self.style.SUCCESS(f'Created default category: {default_category}'))
 
         # Process CSV
         count = 0
@@ -70,6 +71,18 @@ class Command(BaseCommand):
                         self.stdout.write(f"⚠️ Skipping existing: {benefit_id}")
                         continue
 
+                    # Get or create category from CSV if available
+                    if 'category' in row and row['category']:
+                        category_name = row['category']
+                        # Create slug from name
+                        category_slug = category_name.lower().replace(' ', '-')
+                        category, _ = Category.objects.get_or_create(
+                            name=category_name,
+                            defaults={'slug': category_slug, 'description': f'Категория: {category_name}'}
+                        )
+                    else:
+                        category = default_category
+
                     # Create benefit
                     benefit = Benefit(
                         benefit_id=benefit_id,
@@ -87,12 +100,12 @@ class Command(BaseCommand):
                         source_url=row['url'][:200]
                     )
 
-                    benefits_to_create.append(benefit)
+                    benefits_to_create.append((benefit, category))
                     count += 1
 
                     # Bulk create in batches
                     if len(benefits_to_create) >= batch_size:
-                        self._create_batch(benefits_to_create, default_region, category)
+                        self._create_batch(benefits_to_create, default_region)
                         benefits_to_create = []
 
                 except Exception as e:
@@ -102,7 +115,7 @@ class Command(BaseCommand):
 
             # Create remaining
             if benefits_to_create:
-                self._create_batch(benefits_to_create, default_region, category)
+                self._create_batch(benefits_to_create, default_region)
 
         # Summary
         if errors > 0:
@@ -115,11 +128,15 @@ class Command(BaseCommand):
         benefit_count = Benefit.objects.filter(benefit_id__startswith='sfr_').count()
         self.stdout.write(self.style.SUCCESS(f'\nTotal benefits: {benefit_count}'))
 
-    def _create_batch(self, benefits, region, category):
+    def _create_batch(self, benefits_with_categories, region):
         """Create benefits in bulk and add relationships"""
+        # Extract just the benefits for bulk creation
+        benefits = [item[0] for item in benefits_with_categories]
         created_benefits = Benefit.objects.bulk_create(benefits)
 
-        for benefit in created_benefits:
+        # Add relationships with their respective categories
+        for i, benefit in enumerate(created_benefits):
+            category = benefits_with_categories[i][1]
             benefit.regions.add(region)
             benefit.categories.add(category)
 

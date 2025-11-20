@@ -127,6 +127,16 @@ const loading = ref(false)
 const error = ref('')
 const success = ref(false)
 
+// Check if already logged in
+onMounted(() => {
+  const token = localStorage.getItem('access_token')
+  const user = localStorage.getItem('user')
+  if (token && user) {
+    // Already logged in, redirect to dashboard
+    router.push('/dashboard')
+  }
+})
+
 const toggleTheme = () => {
   const newTheme = settings.value.theme === 'light' ? 'dark' : 'light'
   updateSetting('theme', newTheme)

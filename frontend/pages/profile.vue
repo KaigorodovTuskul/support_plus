@@ -172,6 +172,9 @@
         </div>
       </div>
     </main>
+
+    <!-- Floating Chatbot -->
+    <Chatbot />
   </div>
 </template>
 

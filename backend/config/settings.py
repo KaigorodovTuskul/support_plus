@@ -47,7 +47,8 @@ INSTALLED_APPS = [
     'users',
     'benefits',
     'api',
-    'search'
+    'search',
+    'chatbot'
 ]
 
 MIDDLEWARE = [
