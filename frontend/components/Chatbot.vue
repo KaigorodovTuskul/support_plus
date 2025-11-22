@@ -65,7 +65,19 @@
             class="max-w-[80%] rounded-lg p-3"
             :class="msg.role === 'user' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-900'"
           >
-            <p class="text-sm whitespace-pre-wrap">{{ msg.content }}</p>
+            <div class="flex flex-col space-y-2">
+              <p class="text-sm whitespace-pre-wrap">{{ getMessageText(msg.content) }}</p>
+              <button 
+                v-if="getSearchQuery(msg.content)"
+                @click="navigateToBenefits(getSearchQuery(msg.content))"
+                class="self-start text-xs bg-white text-primary-600 border border-primary-200 px-3 py-1.5 rounded-full hover:bg-primary-50 transition flex items-center space-x-1 shadow-sm mt-2"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span>Посмотреть льготы</span>
+              </button>
+            </div>
             <div class="flex items-center justify-between mt-1">
               <p class="text-xs opacity-75">
                 {{ formatTime(msg.timestamp) }}
@@ -199,7 +211,19 @@
             class="max-w-[70%] rounded-lg p-4 shadow-sm"
             :class="msg.role === 'user' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-200 text-gray-900'"
           >
-            <p class="text-sm whitespace-pre-wrap">{{ msg.content }}</p>
+            <div class="flex flex-col space-y-2">
+              <p class="text-sm whitespace-pre-wrap">{{ getMessageText(msg.content) }}</p>
+              <button 
+                v-if="getSearchQuery(msg.content)"
+                @click="navigateToBenefits(getSearchQuery(msg.content))"
+                class="self-start text-xs bg-primary-50 text-primary-700 border border-primary-200 px-3 py-1.5 rounded-full hover:bg-primary-100 transition flex items-center space-x-1 shadow-sm mt-2"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span>Посмотреть льготы</span>
+              </button>
+            </div>
             <div class="flex items-center justify-between mt-1">
               <p class="text-xs opacity-75">
                 {{ formatTime(msg.timestamp) }}
@@ -399,20 +423,8 @@ const sendMessage = async () => {
 
     nextTick(() => scrollToBottom())
 
-    // Handle search redirect
-    if (data.search_query) {
-      // Small delay to let user read the message first
-      setTimeout(() => {
-        navigateTo({
-          path: '/benefits',
-          query: { search: data.search_query }
-        })
-        // Close chat if floating
-        if (!props.inline) {
-          isOpen.value = false
-        }
-      }, 1500)
-    }
+    // Handle search redirect - REMOVED (now using button in message)
+    // if (data.search_query) { ... }
 
     // Don't auto-play - user will click play button if needed
   } catch (err) {
@@ -584,5 +596,27 @@ const scrollToBottom = () => {
 const formatTime = (timestamp) => {
   const date = new Date(timestamp)
   return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+}
+
+// Message parsing helpers
+const getSearchQuery = (content) => {
+  if (!content) return null
+  const match = content.match(/\[SEARCH: (.*?)\]/)
+  return match ? match[1] : null
+}
+
+const getMessageText = (content) => {
+  if (!content) return ''
+  return content.replace(/\[SEARCH: .*?\]/, '').trim()
+}
+
+const navigateToBenefits = (query) => {
+  navigateTo({
+    path: '/benefits',
+    query: { search: query }
+  })
+  if (!props.inline) {
+    isOpen.value = false
+  }
 }
 </script>

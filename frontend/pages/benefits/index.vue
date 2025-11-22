@@ -290,6 +290,14 @@ onMounted(async () => {
     user.value = JSON.parse(userData)
   }
 
+  // Check for search query in URL
+  const route = useRoute()
+  if (route.query.search) {
+    filters.value.search = route.query.search
+    await performSearch()
+    return
+  }
+
   // Fetch benefits - by default show personalized benefits
   try {
     console.log('Fetching benefits...')
