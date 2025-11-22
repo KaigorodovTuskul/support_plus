@@ -21,6 +21,28 @@ from .serializers import (
     VerificationRequestSerializer, CustomTokenObtainPairSerializer
 )
 
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+
+# Reusable schemas
+paginated_response = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'count': openapi.Schema(type=openapi.TYPE_INTEGER),
+        'next': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_URI, nullable=True),
+        'previous': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_URI, nullable=True),
+        'results': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_OBJECT)),
+    }
+)
+
+error_response = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'message': openapi.Schema(type=openapi.TYPE_STRING),
+        'error': openapi.Schema(type=openapi.TYPE_STRING, nullable=True),
+    }
+)
+
 
 def filter_by_target_groups(queryset, category):
     """
@@ -40,6 +62,32 @@ def filter_by_target_groups(queryset, category):
     return queryset.filter(id__in=filtered_ids) if filtered_ids else queryset.none()
 
 
+@swagger_auto_schema(
+    method='post',
+    operation_summary='Регистрация нового пользователя',
+    operation_description='Создает нового пользователя и возвращает JWT токены доступа',
+    request_body=UserRegistrationSerializer,
+    responses={
+        201: openapi.Response(
+            description='Успешная регистрация',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'user': openapi.Schema(type=openapi.TYPE_OBJECT, description='Данные пользователя'),
+                    'tokens': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'refresh': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token'),
+                            'access': openapi.Schema(type=openapi.TYPE_STRING, description='Access token'),
+                        }
+                    )
+                }
+            )
+        ),
+        400: openapi.Response(description='Ошибка валидации', schema=error_response),
+    },
+    tags=['Авторизация']
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_user(request):
@@ -73,6 +121,40 @@ def register_user(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@swagger_auto_schema(
+    method='post',
+    operation_summary='Mock OAuth вход через Госуслуги',
+    operation_description='Заглушка для OAuth авторизации через портал Госуслуги',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, description='Email пользователя'),
+            'beneficiary_category': openapi.Schema(type=openapi.TYPE_STRING, enum=['pensioner', 'disabled', 'large_family'], description='Категория льготника'),
+            'region': openapi.Schema(type=openapi.TYPE_STRING, description='Регион пользователя'),
+        },
+        required=['email']
+    ),
+    responses={
+        200: openapi.Response(
+            description='Успешный вход',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'user': openapi.Schema(type=openapi.TYPE_OBJECT, description='Данные пользователя'),
+                    'tokens': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'refresh': openapi.Schema(type=openapi.TYPE_STRING),
+                            'access': openapi.Schema(type=openapi.TYPE_STRING),
+                        }
+                    )
+                }
+            )
+        ),
+        400: openapi.Response(description='Email required', schema=error_response),
+    },
+    tags=['Авторизация']
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def mock_oauth_login(request):
@@ -123,6 +205,53 @@ class BenefitViewSet(viewsets.ReadOnlyModelViewSet):
             return BenefitDetailSerializer
         return BenefitSerializer
 
+    @swagger_auto_schema(
+        operation_summary='Получить список льгот',
+        operation_description='Возвращает список льгот с возможностью фильтрации, поиска и сортировки',
+        manual_parameters=[
+            openapi.Parameter('type', openapi.IN_QUERY, description='Тип льготы (federal/regional/municipal)', type=openapi.TYPE_STRING, enum=['federal', 'regional', 'municipal']),
+            openapi.Parameter('status', openapi.IN_QUERY, description='Статус льготы', type=openapi.TYPE_STRING, enum=['active', 'expiring_soon', 'expired']),
+            openapi.Parameter('region', openapi.IN_QUERY, description='Название региона', type=openapi.TYPE_STRING),
+            openapi.Parameter('category', openapi.IN_QUERY, description='Slug категории', type=openapi.TYPE_STRING),
+            openapi.Parameter('personalized', openapi.IN_QUERY, description='Персонализировать по категории пользователя', type=openapi.TYPE_BOOLEAN),
+            openapi.Parameter('search', openapi.IN_QUERY, description='Поиск по тексту', type=openapi.TYPE_STRING),
+            openapi.Parameter('ordering', openapi.IN_QUERY, description='Сортировка', type=openapi.TYPE_STRING, enum=['created_at', '-created_at', 'popularity_score', '-popularity_score', 'valid_from', '-valid_from']),
+            openapi.Parameter('page', openapi.IN_QUERY, description='Номер страницы', type=openapi.TYPE_INTEGER),
+        ],
+        responses={
+            200: openapi.Response('Список льгот', paginated_response),
+            401: openapi.Response('Не авторизован'),
+        },
+        tags=['Льготы']
+    )
+    def list(self, request, *args, **kwargs):
+        """List benefits with filtering"""
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary='Получить детали льготы',
+        operation_description='Возвращает полную информацию о конкретной льготе',
+        responses={
+            200: openapi.Response('Детали льготы', schema=openapi.Schema(type=openapi.TYPE_OBJECT)),
+            404: openapi.Response('Льгота не найдена'),
+            401: openapi.Response('Не авторизован'),
+        },
+        tags=['Льготы']
+    )
+    def retrieve(self, request, *args, **kwargs):
+        """Track view when benefit is retrieved"""
+        instance = self.get_object()
+        instance.views_count += 1
+        instance.save(update_fields=['views_count'])
+
+        UserBenefitInteraction.objects.create(
+            user=request.user,
+            benefit=instance,
+            interaction_type='view'
+        )
+
+        return super().retrieve(request, *args, **kwargs)
+
     def get_queryset(self):
         queryset = super().get_queryset()
         user = self.request.user
@@ -162,27 +291,19 @@ class BenefitViewSet(viewsets.ReadOnlyModelViewSet):
 
         return queryset
 
-    def retrieve(self, request, *args, **kwargs):
-        """Track view when benefit is retrieved"""
-        instance = self.get_object()
-        instance.views_count += 1
-        instance.save(update_fields=['views_count'])
-
-        # Log interaction
-        UserBenefitInteraction.objects.create(
-            user=request.user,
-            benefit=instance,
-            interaction_type='view'
-        )
-
-        return super().retrieve(request, *args, **kwargs)
-
+    @swagger_auto_schema(
+        operation_summary='Получить персонализированные рекомендации',
+        operation_description='Возвращает список льгот, рекомендованных для текущего пользователя',
+        responses={
+            200: openapi.Response('Список рекомендованных льгот', paginated_response),
+            401: openapi.Response('Не авторизован'),
+        },
+        tags=['Льготы']
+    )
     @action(detail=False, methods=['get'])
     def recommended(self, request):
         """Get personalized recommended benefits"""
         user = request.user
-
-        # Filter by user's beneficiary category and region
         queryset = self.get_queryset()
 
         if user.beneficiary_category:
@@ -193,24 +314,41 @@ class BenefitViewSet(viewsets.ReadOnlyModelViewSet):
                 Q(applies_to_all_regions=True) | Q(regions__name__icontains=user.region)
             )
 
-        # Prioritize by status and popularity
         queryset = queryset.filter(status='active').order_by('-popularity_score', '-created_at')[:10]
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_summary='Получить данные дашборда',
+        operation_description='Возвращает статистику и список активных/истекающих льгот для пользователя',
+        responses={
+            200: openapi.Response(
+                'Данные дашборда',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'active_count': openapi.Schema(type=openapi.TYPE_INTEGER),
+                        'expiring_count': openapi.Schema(type=openapi.TYPE_INTEGER),
+                        'active_benefits': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_OBJECT)),
+                        'expiring_benefits': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_OBJECT)),
+                    }
+                )
+            ),
+            401: openapi.Response('Не авторизован'),
+        },
+        tags=['Льготы']
+    )
     @action(detail=False, methods=['get'])
     def dashboard(self, request):
         """Get dashboard data for user"""
         user = request.user
         queryset = self.get_queryset()
 
-        # Get active benefits for user
         active = queryset.filter(status='active')
         if user.beneficiary_category:
             active = filter_by_target_groups(active, user.beneficiary_category)
 
-        # Get expiring soon
         expiring_date = timezone.now().date() + timedelta(days=30)
         expiring = active.filter(valid_to__lte=expiring_date, valid_to__gte=timezone.now().date())
 
@@ -231,6 +369,45 @@ class CommercialOfferViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['title', 'description', 'partner_name']
     ordering_fields = ['created_at', 'popularity_score', 'valid_from']
     ordering = ['-created_at']
+
+    @swagger_auto_schema(
+        operation_summary='Получить список коммерческих предложений',
+        operation_description='Возвращает список предложений от партнеров',
+        manual_parameters=[
+            openapi.Parameter('partner_category', openapi.IN_QUERY, description='Категория партнера', type=openapi.TYPE_STRING),
+            openapi.Parameter('region', openapi.IN_QUERY, description='Регион', type=openapi.TYPE_STRING),
+            openapi.Parameter('personalized', openapi.IN_QUERY, description='Персонализировать по пользователю', type=openapi.TYPE_BOOLEAN),
+            openapi.Parameter('search', openapi.IN_QUERY, description='Поиск по тексту', type=openapi.TYPE_STRING),
+            openapi.Parameter('ordering', openapi.IN_QUERY, description='Сортировка', type=openapi.TYPE_STRING),
+        ],
+        responses={200: openapi.Response('Список коммерческих предложений', paginated_response)},
+        tags=['Коммерческие предложения']
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary='Получить детали коммерческого предложения',
+        responses={
+            200: openapi.Response('Детали предложения'),
+            404: openapi.Response('Предложение не найдено'),
+            401: openapi.Response('Не авторизован'),
+        },
+        tags=['Коммерческие предложения']
+    )
+    def retrieve(self, request, *args, **kwargs):
+        """Track view when offer is retrieved"""
+        instance = self.get_object()
+        instance.views_count += 1
+        instance.save(update_fields=['views_count'])
+
+        UserBenefitInteraction.objects.create(
+            user=request.user,
+            offer=instance,
+            interaction_type='view'
+        )
+
+        return super().retrieve(request, *args, **kwargs)
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -255,33 +432,56 @@ class CommercialOfferViewSet(viewsets.ReadOnlyModelViewSet):
 
         return queryset
 
-    def retrieve(self, request, *args, **kwargs):
-        """Track view when offer is retrieved"""
-        instance = self.get_object()
-        instance.views_count += 1
-        instance.save(update_fields=['views_count'])
-
-        # Log interaction
-        UserBenefitInteraction.objects.create(
-            user=request.user,
-            offer=instance,
-            interaction_type='view'
-        )
-
-        return super().retrieve(request, *args, **kwargs)
-
 
 class UserProfileViewSet(viewsets.ModelViewSet):
     """ViewSet for user profile"""
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary='Получить профиль пользователя',
+        responses={200: openapi.Response('Данные профиля', UserProfileSerializer)},
+        tags=['Профиль пользователя']
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary='Обновить профиль пользователя',
+        request_body=UserProfileSerializer,
+        responses={
+            200: openapi.Response('Обновленные данные', UserProfileSerializer),
+            400: openapi.Response('Ошибка валидации', error_response),
+        },
+        tags=['Профиль пользователя']
+    )
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
     def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return UserProfile.objects.none()
         return UserProfile.objects.filter(user=self.request.user)
 
     def get_object(self):
         return self.request.user.profile
 
+    @swagger_auto_schema(
+        operation_summary='Скрыть льготу',
+        operation_description='Добавляет льготу в список скрытых для пользователя',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'benefit_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID льготы'),
+            },
+            required=['benefit_id']
+        ),
+        responses={
+            200: openapi.Response('Льгота скрыта', schema=openapi.Schema(type=openapi.TYPE_OBJECT, properties={'status': openapi.Schema(type=openapi.TYPE_STRING)})),
+            400: openapi.Response('Ошибка', error_response),
+        },
+        tags=['Профиль пользователя']
+    )
     @action(detail=False, methods=['post'])
     def hide_benefit(self, request):
         """Hide a benefit from user's view"""
@@ -294,6 +494,22 @@ class UserProfileViewSet(viewsets.ModelViewSet):
 
         return Response({'status': 'benefit hidden'})
 
+    @swagger_auto_schema(
+        operation_summary='Показать льготу',
+        operation_description='Убирает льготу из списка скрытых',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'benefit_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID льготы'),
+            },
+            required=['benefit_id']
+        ),
+        responses={
+            200: openapi.Response('Льгота показана', schema=openapi.Schema(type=openapi.TYPE_OBJECT, properties={'status': openapi.Schema(type=openapi.TYPE_STRING)})),
+            400: openapi.Response('Ошибка', error_response),
+        },
+        tags=['Профиль пользователя']
+    )
     @action(detail=False, methods=['post'])
     def unhide_benefit(self, request):
         """Unhide a benefit"""
@@ -313,6 +529,22 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary='Получить список категорий',
+        responses={200: openapi.Response('Список категорий', paginated_response)},
+        tags=['Справочники']
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary='Получить детали категории',
+        responses={200: openapi.Response('Детали категории'), 404: openapi.Response('Категория не найдена')},
+        tags=['Справочники']
+    )
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
 
 class RegionViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for regions"""
@@ -320,7 +552,36 @@ class RegionViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = RegionSerializer
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary='Получить список регионов',
+        responses={200: openapi.Response('Список регионов', paginated_response)},
+        tags=['Справочники']
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
+    @swagger_auto_schema(
+        operation_summary='Получить детали региона',
+        responses={200: openapi.Response('Детали региона'), 404: openapi.Response('Регион не найден')},
+        tags=['Справочники']
+    )
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_summary='Экспорт льгот в PDF',
+    operation_description='Генерирует PDF-файл со списком доступных пользователю льгот',
+    responses={
+        200: openapi.Response(
+            description='PDF файл',
+            content={'application/pdf': {}}
+        ),
+        401: openapi.Response('Не авторизован'),
+    },
+    tags=['Экспорт']
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def export_benefits_pdf(request):
@@ -357,6 +618,26 @@ def export_benefits_pdf(request):
     return response
 
 
+@swagger_auto_schema(
+    method='get',
+    operation_summary='Получить информацию о текущем пользователе',
+    responses={
+        200: openapi.Response('Данные пользователя', UserSerializer),
+        401: openapi.Response('Не авторизован'),
+    },
+    tags=['Пользователь']
+)
+@swagger_auto_schema(
+    method='patch',
+    operation_summary='Обновить информацию о пользователе',
+    request_body=openapi.Schema(type=openapi.TYPE_OBJECT, description='Поля для обновления'),
+    responses={
+        200: openapi.Response('Обновленные данные', UserSerializer),
+        400: openapi.Response('Ошибка валидации', error_response),
+        401: openapi.Response('Не авторизован'),
+    },
+    tags=['Пользователь']
+)
 @api_view(['GET', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def user_info(request):
@@ -372,6 +653,25 @@ def user_info(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@swagger_auto_schema(
+    method='post',
+    operation_summary='Смена пароля пользователя',
+    operation_description='Изменяет пароль текущего пользователя после проверки текущего пароля',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['current_password', 'new_password'],
+        properties={
+            'current_password': openapi.Schema(type=openapi.TYPE_STRING, description='Текущий пароль'),
+            'new_password': openapi.Schema(type=openapi.TYPE_STRING, description='Новый пароль'),
+        }
+    ),
+    responses={
+        200: openapi.Response('Пароль успешно изменен', schema=openapi.Schema(type=openapi.TYPE_OBJECT, properties={'message': openapi.Schema(type=openapi.TYPE_STRING)})),
+        400: openapi.Response('Ошибка валидации', error_response),
+        401: openapi.Response('Не авторизован'),
+    },
+    tags=['Пользователь']
+)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def change_password(request):
@@ -394,4 +694,32 @@ def change_password(request):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom token view that uses email for authentication"""
-    serializer_class = CustomTokenObtainPairSerializer
+
+    @swagger_auto_schema(
+        operation_summary='Получить JWT токен',
+        operation_description='Аутентификация по email и паролю. Возвращает JWT токены доступа и обновления.',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'password'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, description='Email пользователя'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description='Пароль'),
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description='Токены успешно созданы',
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'refresh': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token'),
+                        'access': openapi.Schema(type=openapi.TYPE_STRING, description='Access token'),
+                    }
+                )
+            ),
+            401: openapi.Response(description='Неверные учетные данные', schema=error_response),
+        },
+        tags=['Авторизация']
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)

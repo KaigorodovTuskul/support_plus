@@ -15,14 +15,14 @@ class LocalEmbeddingService:
         pass
 
     def generate(self, text: str) -> list[float]:
-        """Заглушка - возвращает пустой список"""
+        """Заглушка - возвращает нулевой вектор правильной размерности"""
         # Для VPS используйте облачные API для embeddings
-        return []
+        return [0.0] * 1024
 
     def generate_for_benefit(self, benefit) -> list[float]:
-        """Заглушка - возвращает пустой список"""
-        return []
+        """Заглушка - возвращает нулевой вектор правильной размерности"""
+        return [0.0] * 1024
 
     def generate_for_offer(self, offer) -> list[float]:
-        """Заглушка - возвращает пустой список"""
-        return []
+        """Заглушка - возвращает нулевой вектор правильной размерности"""
+        return [0.0] * 1024

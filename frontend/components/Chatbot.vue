@@ -399,6 +399,21 @@ const sendMessage = async () => {
 
     nextTick(() => scrollToBottom())
 
+    // Handle search redirect
+    if (data.search_query) {
+      // Small delay to let user read the message first
+      setTimeout(() => {
+        navigateTo({
+          path: '/benefits',
+          query: { search: data.search_query }
+        })
+        // Close chat if floating
+        if (!props.inline) {
+          isOpen.value = false
+        }
+      }, 1500)
+    }
+
     // Don't auto-play - user will click play button if needed
   } catch (err) {
     console.error('Error sending message:', err)
