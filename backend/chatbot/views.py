@@ -8,11 +8,22 @@ from .models import ChatMessage
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
+# Search integration
+from search.embedding_service import LocalEmbeddingService
+from search.vector_store import InMemoryVectorStore
+from search.models import SearchIndex
+from benefits.models import Benefit, CommercialOffer
+from django.contrib.contenttypes.models import ContentType
+
 # API key
 MISTRAL_API_KEY = os.getenv('MISTRAL_API_KEY')
 
 # Initialize Mistral client
 mistral_client = Mistral(api_key=MISTRAL_API_KEY)
+
+# Initialize search services
+embedding_service = LocalEmbeddingService()
+vector_store = InMemoryVectorStore()
 
 
 @swagger_auto_schema(
@@ -62,6 +73,45 @@ def chat(request):
         )
 
     try:
+        # 1. Search for relevant context
+        context_text = ""
+        try:
+            # Generate embedding
+            query_embedding = embedding_service.generate(f"query: {message}")
+            
+            # Search in vector store
+            search_results = vector_store.search(
+                query_embedding,
+                filters={}, # No filters for now, search everything
+                top_k=3
+            )
+            
+            if search_results:
+                search_ids = [sid for sid, _ in search_results]
+                search_records = SearchIndex.objects.filter(id__in=search_ids)
+                
+                found_items = []
+                for record in search_records:
+                    if record.content_type_name == 'benefit':
+                        try:
+                            benefit = Benefit.objects.get(id=record.object_id)
+                            found_items.append(f"Льгота: {benefit.title}\nОписание: {benefit.description}\nКто может получить: {benefit.requirements}")
+                        except Benefit.DoesNotExist:
+                            continue
+                    elif record.content_type_name == 'commercial':
+                        try:
+                            offer = CommercialOffer.objects.get(id=record.object_id)
+                            found_items.append(f"Предложение: {offer.title}\nПартнер: {offer.partner_name}\nСкидка: {offer.discount_description}")
+                        except CommercialOffer.DoesNotExist:
+                            continue
+                
+                if found_items:
+                    context_text = "\n\nНАЙДЕННАЯ ИНФОРМАЦИЯ ИЗ БАЗЫ ДАННЫХ:\n" + "\n---\n".join(found_items)
+                    print(f"Found {len(found_items)} relevant items for context")
+        except Exception as e:
+            print(f"Error retrieving context: {e}")
+            # Continue without context if search fails
+
         # Get chat context (last 5 messages)
         previous_messages = ChatMessage.objects.filter(
             user=request.user
@@ -73,11 +123,18 @@ def chat(request):
             messages.append({'role': 'user', 'content': prev_msg.message})
             messages.append({'role': 'assistant', 'content': prev_msg.response})
 
-        # Add system prompt
+        # Add system prompt with context
         system_prompt = """Вы - помощник по льготам и социальным выплатам для инвалидов в России.
 Вы помогаете пользователям найти информацию о доступных льготах, пенсиях, технических средствах реабилитации и других мерах поддержки.
 ВАЖНО: Отвечайте КРАТКО и ПО СУЩЕСТВУ. Максимум 2-3 предложения. Избегайте длинных объяснений.
-Если вы не знаете ответа, честно скажите об этом и порекомендуйте обратиться в Социальный фонд России."""
+Если вы не знаете ответа, честно скажите об этом и порекомендуйте обратиться в Социальный фонд России.
+
+ИНСТРУКЦИЯ ПО ПОИСКУ:
+Если пользователь явно просит найти льготы, показать список льгот, или спрашивает "какие льготы есть для...", вы должны добавить в конец ответа специальный тег: [SEARCH: поисковый запрос].
+Пример: Пользователь спрашивает "Какие льготы на проезд?". Вы отвечаете: "Вам могут быть доступны льготы на бесплатный проезд в общественном транспорте. [SEARCH: льготы на проезд]"."""
+
+        if context_text:
+            system_prompt += f"\n\nИспользуйте следующую информацию для ответа на вопрос пользователя, если она релевантна:{context_text}"
 
         messages.insert(0, {'role': 'system', 'content': system_prompt})
 
@@ -105,6 +162,20 @@ def chat(request):
         )
 
         assistant_response = chat_response.choices[0].message.content
+        
+        # Parse for search intent
+        search_query = None
+        if '[SEARCH:' in assistant_response:
+            try:
+                start_idx = assistant_response.find('[SEARCH:')
+                end_idx = assistant_response.find(']', start_idx)
+                if end_idx != -1:
+                    search_tag = assistant_response[start_idx:end_idx+1]
+                    search_query = search_tag.replace('[SEARCH:', '').replace(']', '').strip()
+                    # Remove the tag from the visible response
+                    assistant_response = assistant_response.replace(search_tag, '').strip()
+            except Exception as e:
+                print(f"Error parsing search tag: {e}")
 
         # Save to database
         ChatMessage.objects.create(
@@ -113,10 +184,15 @@ def chat(request):
             response=assistant_response
         )
 
-        return Response({
+        response_data = {
             'response': assistant_response,
             'timestamp': ChatMessage.objects.filter(user=request.user).latest('created_at').created_at
-        })
+        }
+        
+        if search_query:
+            response_data['search_query'] = search_query
+
+        return Response(response_data)
 
     except Exception as e:
         return Response(

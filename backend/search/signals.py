@@ -1,7 +1,8 @@
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.contrib.contenttypes.models import ContentType
-from django.db import OperationalError  # Add this
+from django.db import OperationalError
+import json  # Add this
 from benefits.models import Benefit, CommercialOffer
 from .models import SearchIndex
 from .embedding_service import LocalEmbeddingService

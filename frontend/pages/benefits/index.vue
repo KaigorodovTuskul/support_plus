@@ -327,18 +327,25 @@ onMounted(async () => {
 
 // Flag to track if showing all benefits
 const showingAllBenefits = ref(false)
+const searchTimeout = ref(null)
 
 const applyFilters = () => {
-  let result = [...benefits.value]
-
-  // Search filter
+  // If there is a search query, perform server-side search with debounce
   if (filters.value.search) {
-    const searchLower = filters.value.search.toLowerCase()
-    result = result.filter(b =>
-      b.title.toLowerCase().includes(searchLower) ||
-      b.description.toLowerCase().includes(searchLower)
-    )
+    if (searchTimeout.value) clearTimeout(searchTimeout.value)
+    
+    searchTimeout.value = setTimeout(() => {
+      performSearch()
+    }, 500) // 500ms debounce
+    return
   }
+
+  // If no search query, just filter the currently loaded benefits client-side
+  filterLocalResults()
+}
+
+const filterLocalResults = () => {
+  let result = [...benefits.value]
 
   // Benefit type filter
   if (filters.value.benefit_type) {
@@ -362,6 +369,36 @@ const applyFilters = () => {
   filteredBenefits.value = result
 }
 
+const performSearch = async () => {
+  loading.value = true
+  try {
+    const token = localStorage.getItem('access_token')
+    const response = await $fetch(`${config.public.apiBase}/api/search/`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: {
+        query: filters.value.search
+      }
+    })
+
+    // The search endpoint returns { benefits: [], offers: [], ... }
+    // We'll focus on benefits for this page
+    if (response && response.benefits) {
+      // Update the main benefits list with search results
+      benefits.value = response.benefits
+      
+      // Apply other active filters (type, category, region) to these results
+      filterLocalResults()
+    }
+  } catch (err) {
+    console.error('Error performing search:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
 const resetFilters = async () => {
   filters.value = {
     search: '',
@@ -369,40 +406,41 @@ const resetFilters = async () => {
     category: '',
     region: ''
   }
+  
+  if (searchTimeout.value) clearTimeout(searchTimeout.value)
 
-  // If showing all benefits, switch back to personalized
-  if (showingAllBenefits.value) {
-    loading.value = true
-    try {
-      const token = localStorage.getItem('access_token')
-      const response = await $fetch(`${config.public.apiBase}/benefits/?personalized=true`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
-
-      // Handle paginated response
-      if (response && typeof response === 'object' && 'results' in response) {
-        benefits.value = response.results
-      } else if (Array.isArray(response)) {
-        benefits.value = response
-      } else {
-        benefits.value = []
+  // Reload initial personalized benefits
+  loading.value = true
+  try {
+    const token = localStorage.getItem('access_token')
+    const response = await $fetch(`${config.public.apiBase}/benefits/?personalized=true`, {
+      headers: {
+        Authorization: `Bearer ${token}`
       }
+    })
 
-      showingAllBenefits.value = false
-    } catch (err) {
-      console.error('Error loading personalized benefits:', err)
-    } finally {
-      loading.value = false
+    if (response && typeof response === 'object' && 'results' in response) {
+      benefits.value = response.results
+    } else if (Array.isArray(response)) {
+      benefits.value = response
+    } else {
+      benefits.value = []
     }
-  }
 
-  filteredBenefits.value = benefits.value
+    showingAllBenefits.value = false
+    filteredBenefits.value = benefits.value
+  } catch (err) {
+    console.error('Error loading personalized benefits:', err)
+  } finally {
+    loading.value = false
+  }
 }
 
 const showAllBenefits = async () => {
   loading.value = true
+  // Clear search when switching to "All benefits"
+  filters.value.search = ''
+  
   try {
     const token = localStorage.getItem('access_token')
     const response = await $fetch(`${config.public.apiBase}/benefits/`, {
@@ -411,7 +449,6 @@ const showAllBenefits = async () => {
       }
     })
 
-    // Handle paginated response
     if (response && typeof response === 'object' && 'results' in response) {
       benefits.value = response.results
     } else if (Array.isArray(response)) {
