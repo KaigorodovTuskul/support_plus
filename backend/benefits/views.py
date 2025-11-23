@@ -1,25 +1,5 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django.contrib.contenttypes.models import ContentType
-from django.shortcuts import get_object_or_404
-import json
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
-from .query_parser import QueryParser
-from .embedding_service import LocalEmbeddingService
-from .vector_store import InMemoryVectorStore
-from .models import SearchIndex
-from benefits.models import Benefit, CommercialOffer
-
-# Global services
-query_parser = QueryParser()
-embedding_service = LocalEmbeddingService()
-vector_store = InMemoryVectorStore()
-
-
-class NaturalLanguageSearchAPI(APIView):
-    """Unified search for benefits and commercial offers using natural language"""
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(

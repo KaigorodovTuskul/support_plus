@@ -9,7 +9,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
 # Search integration
-from search.embedding_service import LocalEmbeddingService
+from search.embedding_service import MistralEmbeddingService
 from search.vector_store import InMemoryVectorStore
 from search.models import SearchIndex
 from benefits.models import Benefit, CommercialOffer
@@ -22,7 +22,7 @@ MISTRAL_API_KEY = os.getenv('MISTRAL_API_KEY')
 mistral_client = Mistral(api_key=MISTRAL_API_KEY)
 
 # Initialize search services
-embedding_service = LocalEmbeddingService()
+embedding_service = MistralEmbeddingService()
 vector_store = InMemoryVectorStore()
 
 
@@ -152,7 +152,7 @@ def chat(request):
             elif msg['role'] == 'user':
                 mistral_messages.append(UserMessage(content=msg['content']))
             elif msg['role'] == 'assistant':
-                mistral_messages.append(AssistantMessage(content=msg['content']))
+                 mistral_messages.append(AssistantMessage(content=msg['content']))
 
         chat_response = mistral_client.chat.complete(
             model="mistral-large-latest",

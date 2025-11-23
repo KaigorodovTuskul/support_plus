@@ -9,14 +9,14 @@ import json
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .query_parser import QueryParser
-from .embedding_service import LocalEmbeddingService
+from .embedding_service import MistralEmbeddingService
 from .vector_store import InMemoryVectorStore
 from .models import SearchIndex
 from benefits.models import Benefit, CommercialOffer
 
 # Global services
 query_parser = QueryParser()
-embedding_service = LocalEmbeddingService()
+embedding_service = MistralEmbeddingService()
 vector_store = InMemoryVectorStore()
 
 

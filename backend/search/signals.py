@@ -5,11 +5,11 @@ from django.db import OperationalError
 import json  # Add this
 from benefits.models import Benefit, CommercialOffer
 from .models import SearchIndex
-from .embedding_service import LocalEmbeddingService
+from .embedding_service import MistralEmbeddingService
 from .vector_store import InMemoryVectorStore
 
 # Global singletons
-embedding_service = LocalEmbeddingService()
+embedding_service = MistralEmbeddingService()
 vector_store = InMemoryVectorStore()
 
 
@@ -22,7 +22,6 @@ def create_or_update_search_index(instance, content_type_name):
         regions = [r.code for r in instance.regions.all()[:5]]  # Limit to 5 regions for speed
         if not regions and instance.applies_to_all_regions:
             regions = ['all']
-
         # Generate embedding
         if content_type_name == 'benefit':
             embedding = embedding_service.generate_for_benefit(instance)
