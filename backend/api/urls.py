@@ -3,12 +3,14 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
 
+
 router = DefaultRouter()
 router.register(r'benefits', views.BenefitViewSet, basename='benefit')
 router.register(r'offers', views.CommercialOfferViewSet, basename='offer')
 router.register(r'categories', views.CategoryViewSet, basename='category')
 router.register(r'regions', views.RegionViewSet, basename='region')
 router.register(r'profile', views.UserProfileViewSet, basename='profile')
+
 
 urlpatterns = [
     # Auth endpoints

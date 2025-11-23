@@ -174,15 +174,15 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             try:
                 user = User.objects.get(email=email)
             except User.DoesNotExist:
-                raise serializers.ValidationError('Не найдено активной учетной записи с указанными данными')
+                raise serializers.ValidationError( 'Неверный email или пароль')
 
             # Check if user is active
             if not user.is_active:
-                raise serializers.ValidationError('Учетная запись отключена')
+                raise serializers.ValidationError( 'Учетная запись отключена')
 
             # Verify password
             if not user.check_password(password):
-                raise serializers.ValidationError('Неверный email или пароль')
+                raise serializers.ValidationError( 'Неверный email или пароль')
 
             # Create refresh token
             refresh = self.get_token(user)
@@ -194,4 +194,4 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
             return data
         else:
-            raise serializers.ValidationError('Необходимо указать email и пароль')
+            raise serializers.ValidationError( 'Необходимо указать email и пароль')

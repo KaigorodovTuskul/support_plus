@@ -66,6 +66,22 @@
         </div>
       </div>
 
+      <!-- Chatbot Helper -->
+      <div class="mb-8">
+        <Chatbot :inline="true" />
+      </div>
+
+      <!-- Quick Access -->
+      <div class="mb-8">
+        <NuxtLink
+          to="/benefits"
+          class="bg-white rounded-xl shadow p-6 hover:shadow-lg transition block"
+        >
+          <h3 class="text-lg font-bold text-gray-900 mb-2">Все льготы</h3>
+          <p class="text-gray-600 text-sm">Просмотрите полный список доступных льгот</p>
+        </NuxtLink>
+      </div>
+
       <!-- Active Benefits -->
       <div class="bg-white rounded-xl shadow mb-8">
         <div class="p-6 border-b border-gray-200">
@@ -113,29 +129,6 @@
         </div>
       </div>
 
-      <!-- Inline Chatbot Section -->
-      <div class="mb-8">
-        <Chatbot :inline="true" />
-      </div>
-
-      <!-- Quick Links -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <NuxtLink
-          to="/benefits"
-          class="bg-white rounded-xl shadow p-6 hover:shadow-lg transition"
-        >
-          <h3 class="text-lg font-bold text-gray-900 mb-2">Все льготы</h3>
-          <p class="text-gray-600 text-sm">Просмотрите полный список доступных льгот</p>
-        </NuxtLink>
-
-        <NuxtLink
-          to="/profile"
-          class="bg-white rounded-xl shadow p-6 hover:shadow-lg transition"
-        >
-          <h3 class="text-lg font-bold text-gray-900 mb-2">Личный кабинет</h3>
-          <p class="text-gray-600 text-sm">Управление профилем и изменение пароля</p>
-        </NuxtLink>
-      </div>
     </main>
   </div>
 </template>

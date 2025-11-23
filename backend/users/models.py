@@ -28,6 +28,19 @@ class User(AbstractUser):
     )
     region = models.CharField(max_length=100, help_text='Регион проживания', blank=True, null=True)
 
+    # Organization/Company fields
+    USER_TYPES = [
+        ('individual', 'Физическое лицо'),
+        ('company', 'Компания/Юридическое лицо'),
+        ('ip', 'Индивидуальный предприниматель'),
+        ('self_employed', 'Самозанятый'),
+    ]
+    user_type = models.CharField(max_length=20, choices=USER_TYPES, default='individual', help_text='Тип пользователя')
+    company_name = models.CharField(max_length=255, blank=True, null=True, help_text='Название компании')
+    company_address = models.TextField(blank=True, null=True, help_text='Адрес компании')
+    company_inn = models.CharField(max_length=12, blank=True, null=True, help_text='ИНН')
+    company_logo = models.URLField(blank=True, null=True, help_text='URL логотипа компании')
+
     # SNILS number (masked for privacy)
     snils_validator = RegexValidator(
         regex=r'^\d{3}-\d{3}-\d{3} \d{2}$',

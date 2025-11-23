@@ -1,12 +1,12 @@
 <template>
   <div class="min-h-screen transition-colors duration-200" :class="settings.theme === 'dark' ? 'bg-gray-900' : 'bg-gradient-to-b from-green-50 to-white'">
     <!-- Header -->
-    <header class="shadow-sm transition-colors duration-200" :class="settings.theme === 'dark' ? 'bg-gray-800' : 'bg-white'">
+    <AppHeader v-if="isAuthenticated" :username="user?.username || 'Пользователь'" />
+    <header v-else class="shadow-sm transition-colors duration-200" :class="settings.theme === 'dark' ? 'bg-gray-800' : 'bg-white'">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div class="flex items-center justify-between">
           <div class="flex items-center space-x-3">
-            <img src="/logo.jpg" alt="Опора" class="w-12 h-12 rounded-lg object-cover">
-            <h1 class="text-2xl font-bold transition-colors duration-200" :class="settings.theme === 'dark' ? 'text-white' : 'text-gray-900'">Опора</h1>
+            <img :src="settings.theme === 'dark' ? '/opora_logo_dark_theme.png' : '/opora_logo_light_theme.png'" alt="Опора" class="h-16 object-contain">
           </div>
           <nav class="flex items-center space-x-3">
             <!-- Theme Switcher -->
@@ -157,6 +157,21 @@
 
 <script setup>
 const { settings, updateSetting } = useAccessibility()
+
+const router = useRouter()
+
+const user = ref(null)
+const isAuthenticated = ref(false)
+
+onMounted(() => {
+  const token = localStorage.getItem('access_token')
+  const userData = localStorage.getItem('user')
+  if (token && userData) {
+    isAuthenticated.value = true
+    user.value = JSON.parse(userData)
+  }
+})
+
 
 const toggleTheme = () => {
   const newTheme = settings.value.theme === 'light' ? 'dark' : 'light'

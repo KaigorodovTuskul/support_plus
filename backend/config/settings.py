@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     # Local apps
     'users',
     'benefits',
+    'donations',
+    'business_offers',
     'api',
     'search',
     'chatbot'

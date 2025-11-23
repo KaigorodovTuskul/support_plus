@@ -1,0 +1,162 @@
+<template>
+  <div class="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center px-4">
+    <div class="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+      <h2 class="text-3xl font-bold text-gray-900 mb-2">Оплата пожертвования</h2>
+      <p class="text-gray-600 mb-6">Система быстрых платежей (СБП)</p>
+
+      <!-- Transaction Info -->
+      <div class="bg-gray-50 rounded-lg p-4 mb-6">
+        <p class="text-sm text-gray-500">Номер транзакции</p>
+        <p class="font-mono text-sm font-semibold text-gray-900 mb-3">{{ txnId }}</p>
+        <p class="text-sm text-gray-500">Сумма к оплате</p>
+        <p class="text-3xl font-bold text-primary-600">
+          {{ formatAmount(donation.amount) }} ₽
+        </p>
+      </div>
+
+      <!-- QR Code -->
+      <div class="bg-gray-100 rounded-xl p-8 mb-6 flex items-center justify-center">
+        <div class="w-64 h-64 bg-white rounded-lg shadow-inner flex items-center justify-center">
+          <img 
+            src="/qr_code.png" 
+            alt="QR-код для оплаты" 
+            class="w-48 h-48 object-contain"
+          >
+        </div>
+      </div>
+
+      <p class="text-gray-700 mb-6">Отсканируйте QR-код в приложении вашего банка</p>
+
+      <!-- Action Buttons -->
+      <div class="space-y-3">
+        <button
+          @click="confirmPayment"
+          :disabled="processing"
+          class="w-full py-3 px-4 bg-primary-600 text-white rounded-lg font-semibold hover:bg-primary-700 transition disabled:opacity-50"
+        >
+          {{ processing ? 'Обработка...' : 'Оплачено' }}
+        </button>
+        <button
+          @click="cancel"
+          :disabled="processing"
+          class="w-full py-3 px-4 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition disabled:opacity-50"
+        >
+          Отменить
+        </button>
+      </div>
+
+      <!-- Timer -->
+      <div class="mt-6">
+        <p class="text-gray-600 text-sm">QR-код действителен</p>
+        <p class="text-2xl font-bold text-gray-900">{{ formatTime(timeLeft) }}</p>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+const router = useRouter()
+const route = useRoute()
+const config = useRuntimeConfig()
+
+const donation = ref({
+  transaction_id: '',
+  amount: 1000,
+  donor_name: 'Анонимный донор'
+})
+const processing = ref(false)
+const timeLeft = ref(600)
+let timer = null
+
+const txnId = route.query.txn
+
+const formatTime = (seconds) => {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+const formatAmount = (amount) => {
+  return new Intl.NumberFormat('ru-RU').format(amount)
+}
+
+onMounted(async () => {
+  if (!txnId) {
+    router.push('/donate/individual')
+    return
+  }
+
+  try {
+    const donationData = await $fetch(`${config.public.apiBase}/donations/by_transaction/?transaction_id=${txnId}`)
+
+    if (donationData) {
+      donation.value = {
+        transaction_id: donationData.transaction_id,
+        amount: donationData.amount,
+        donor_name: donationData.display_name || 'Анонимный донор'
+      }
+    }
+  } catch (err) {
+    console.error('Error loading donation:', err)
+    donation.value = {
+      transaction_id: txnId,
+      amount: parseInt(route.query.amount) || 1000,
+      donor_name: 'Анонимный донор'
+    }
+  }
+
+  console.log('Данные доната:', donation.value)
+
+  timer = setInterval(() => {
+    timeLeft.value--
+    if (timeLeft.value <= 0) {
+      clearInterval(timer)
+      router.push('/donate/individual')
+    }
+  }, 1000)
+})
+
+onUnmounted(() => {
+  if (timer) {
+    clearInterval(timer)
+  }
+})
+
+const confirmPayment = async () => {
+  processing.value = true
+
+  try {
+    await $fetch(`${config.public.apiBase}/donations/confirm_payment/`, {
+      method: 'POST',
+      body: {
+        transaction_id: txnId
+      }
+    })
+
+    console.log('Оплата подтверждена в БД')
+
+    setTimeout(() => {
+      router.push(`/donate/receipt?txn=${txnId}`)
+    }, 1500)
+
+  } catch (err) {
+    console.error('Error confirming payment:', err)
+    alert('Ошибка подтверждения платежа: ' + (err.data?.error || 'Транзакция не найдена'))
+    processing.value = false
+  }
+}
+
+const cancel = () => {
+  if (timer) {
+    clearInterval(timer)
+  }
+  router.push('/donate/individual')
+}
+
+useHead({
+  title: 'Оплата пожертвования | Опора',
+  meta: [
+    { name: 'description', content: 'Оплата пожертвования через СБП' }
+  ]
+})
+</script>

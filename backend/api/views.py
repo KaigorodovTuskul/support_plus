@@ -723,3 +723,48 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     )
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
+    
+# views.py - добавить эти эндпоинты
+@api_view(['GET'])
+def leaderboard(request):
+    # Получаем только оплаченные донаты для лидерборда
+    donations = Donation.objects.filter(payment_status='paid', show_on_leaderboard=True)
+    
+    # Добавляем tier (уровень) для каждого доната
+    leaderboard_data = []
+    for donation in donations:
+        leaderboard_data.append({
+            'id': donation.id,
+            'display_name': donation.donor_name or 'Анонимный донор',
+            'amount': donation.amount,
+            'tier': calculate_tier(donation.amount),
+            'created_at': donation.created_at,
+            'message': donation.message,
+            'donor_type': donation.donor_type
+        })
+    
+    return Response(leaderboard_data)
+
+@api_view(['GET'])
+def donation_stats(request):
+    paid_donations = Donation.objects.filter(payment_status='paid')
+    
+    stats = {
+        'total_amount': paid_donations.aggregate(Sum('amount'))['amount__sum'] or 0,
+        'total_donations': paid_donations.count(),
+        'gold_partners': paid_donations.filter(amount__gte=10000).count(),
+        'silver_partners': paid_donations.filter(amount__gte=5000, amount__lt=10000).count(),
+        'bronze_partners': paid_donations.filter(amount__gte=1000, amount__lt=5000).count()
+    }
+    
+    return Response(stats)
+
+def calculate_tier(amount):
+    if amount >= 10000:
+        return 'gold'
+    elif amount >= 5000:
+        return 'silver'
+    elif amount >= 1000:
+        return 'bronze'
+    else:
+        return 'none'

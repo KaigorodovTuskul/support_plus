@@ -5,8 +5,7 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div class="flex items-center justify-between">
           <NuxtLink to="/" class="flex items-center space-x-3">
-            <img src="/logo.jpg" alt="Опора" class="w-12 h-12 rounded-lg object-cover">
-            <h1 class="text-2xl font-bold text-gray-900">Опора</h1>
+            <img :src="settings.theme === 'dark' ? '/opora_logo_dark_theme.png' : '/opora_logo_light_theme.png'" alt="Опора" class="h-16 object-contain">
           </NuxtLink>
           <button
             @click="toggleTheme"
@@ -96,10 +95,27 @@
           </div>
 
           <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Тип регистрации</label>
+            <select
+              v-model="form.user_type"
+              required
+              @change="onUserTypeChange"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">Выберите тип</option>
+              <option value="individual">Физическое лицо (для получения льгот)</option>
+              <option value="company">Компания/Юридическое лицо</option>
+              <option value="ip">Индивидуальный предприниматель</option>
+              <option value="self_employed">Самозанятый</option>
+            </select>
+          </div>
+
+          <!-- For Individuals - Show Beneficiary Category -->
+          <div v-if="form.user_type === 'individual'">
             <label class="block text-sm font-medium text-gray-700 mb-1">Категория льготника</label>
             <select
               v-model="form.beneficiary_category"
-              required
+              :required="form.user_type === 'individual'"
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="">Выберите категорию</option>
@@ -113,6 +129,39 @@
               <option value="svo_participant">Участник СВО</option>
               <option value="svo_family">Семья участника СВО</option>
             </select>
+          </div>
+
+          <!-- For Business - Show Company Fields -->
+          <div v-if="['company', 'ip', 'self_employed'].includes(form.user_type)">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Название организации <span class="text-red-500">*</span></label>
+            <input
+              v-model="form.company_name"
+              type="text"
+              :required="['company', 'ip', 'self_employed'].includes(form.user_type)"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="ООО Рога и копыта"
+            />
+          </div>
+
+          <div v-if="['company', 'ip', 'self_employed'].includes(form.user_type)">
+            <label class="block text-sm font-medium text-gray-700 mb-1">ИНН <span class="text-red-500">*</span></label>
+            <input
+              v-model="form.company_inn"
+              type="text"
+              :required="['company', 'ip', 'self_employed'].includes(form.user_type)"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="1234567890"
+            />
+          </div>
+
+          <div v-if="['company', 'ip', 'self_employed'].includes(form.user_type)">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
+            <textarea
+              v-model="form.company_address"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              rows="2"
+              placeholder="г. Москва, ул. Ленина, д. 1"
+            ></textarea>
           </div>
 
           <div>
@@ -201,12 +250,28 @@ const form = ref({
   username: '',
   email: '',
   phone: '',
+  user_type: '',
   beneficiary_category: '',
+  company_name: '',
+  company_inn: '',
+  company_address: '',
   region: '',
   snils: '',
   password: '',
   password2: ''
 })
+
+const onUserTypeChange = () => {
+  // Clear fields when changing user type
+  if (form.value.user_type === 'individual') {
+    form.value.company_name = ''
+    form.value.company_inn = ''
+    form.value.company_address = ''
+  } else {
+    form.value.beneficiary_category = ''
+    form.value.snils = ''
+  }
+}
 
 const loading = ref(false)
 const error = ref('')

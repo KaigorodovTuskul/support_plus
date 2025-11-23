@@ -26,6 +26,8 @@ urlpatterns = [
     path('api/', include('api.urls')),
     path('api/', include('chatbot.urls')),
     path('api/', include('search.urls')),
+    path('api/', include('donations.urls')),
+    path('api/business/', include('business_offers.urls')),
 
     #  swagger
     re_path(r'^swagger(?P<format>\.json|\.yaml)$',
